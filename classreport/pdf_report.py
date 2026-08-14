@@ -218,7 +218,8 @@ class PdfReportBuilder:
         self._page_base(c, a, "④ ◆ 板块雷达 + 各讲分数趋势（入班测 vs 课堂巩固 · 100 分制）")
         c.setFillColor(MUTED)
         c.setFont(FONT, 8.5)
-        self._emoji(c, "📊", 48, 698, 14)
+        # Align the chart icon with the visual centre of the 8.5pt description text.
+        self._emoji(c, "📊", 48, 716, 14)
         c.drawString(67, 712, f"本图组展示 {a.student.name} 的个人成绩与 {len(a.student.classmates_consolidation)} 人班级平均的双维度对比。")
         image = self._charts_image(a)
         c.drawImage(ImageReader(image), 49, 265, width=497, height=420, preserveAspectRatio=True, mask="auto")
@@ -243,8 +244,8 @@ class PdfReportBuilder:
     def _diagnosis_page(self, c: Canvas, a: ReportAnalysis) -> None:
         self._page_base(c, a, "⑦ ★ 核心判断 & 建议")
         strengths = [item for item in a.categories if item.score is not None and item.score >= 85]
-        strength_text = " / ".join(f"{x.category} {x.score:.1f} 分" for x in strengths) or "暂无可判断板块"
-        low_text = " / ".join(self._lesson_text(number, lesson, score) for number, lesson, score in a.low_lessons) or "暂无弱项（各讲均不低于 85 分）"
+        strength_text = self._core_strength_text(a)
+        low_text = self._core_weakness_text(a)
         self._callout(c, 48, 646, 499, 101, [
             ("✅", GREEN, f"优势：{strength_text}"),
             ("⚠️", RED, f"不足：{low_text}"),
@@ -288,7 +289,7 @@ class PdfReportBuilder:
         c.setFont(FONT_BOLD, 13)
         c.drawString(70, 714, "整体评价")
         summary = self._summary_text(a)
-        self._wrapped(c, summary, 70, 674, 474, 11, 20, TEXT)
+        self._wrapped(c, summary, 70, 674, 474, 10, 18, TEXT)
         c.setFillColor(HexColor("#FFF8DF"))
         c.rect(70, 622, 476, 21, fill=1, stroke=0)
         c.setFillColor(MUTED)
@@ -296,7 +297,8 @@ class PdfReportBuilder:
         c.drawString(80, 629, "评级算法：入班测与课堂巩固平均为基础；有期末测评时叠加班级百分位。")
         c.setFillColor(HEADING)
         c.setFont(FONT_BOLD, 13)
-        self._emoji(c, "🚀", 70, 582, 15)
+        # These heading icons are centred against the visual, not baseline, height of the title text.
+        self._emoji(c, "🚀", 70, 599, 15)
         c.drawString(91, 595, "暑假复习建议")
         c.setFillColor(TEXT)
         c.setFont(FONT_BOLD, 11.5)
@@ -313,7 +315,7 @@ class PdfReportBuilder:
             advice_y -= 20
         c.setFillColor(HEADING)
         c.setFont(FONT_BOLD, 11.5)
-        self._emoji(c, "📚", 70, advice_y - 29, 15)
+        self._emoji(c, "📚", 70, advice_y - 12, 15)
         c.drawString(91, advice_y - 16, "复习方法（建议家长参与）")
         methods = [
             "家长版教材配套：每个知识点同步使用教材，由家长陪同复习讲解。",
@@ -372,7 +374,7 @@ class PdfReportBuilder:
     def _note(self, c: Canvas, text: str, y: float, icon: str = "📌") -> None:
         c.setFillColor(LIGHT_BLUE)
         c.roundRect(48, y - 18, 499, 20, 2, fill=1, stroke=0)
-        self._emoji(c, icon, 55, y - 16, 12)
+        self._emoji(c, icon, 55, y - 8, 12)
         c.setFillColor(MUTED)
         c.setFont(FONT, 8.4)
         c.drawString(71, y - 11, text)
@@ -422,12 +424,12 @@ class PdfReportBuilder:
         line_y = y + height - 20
         for icon, color, text in lines:
             c.setFillColor(color)
-            self._emoji(c, icon, x + 11, line_y - 7, 13)
+            self._emoji(c, icon, x + 11, line_y + 3, 13)
             self._wrapped(c, text, x + 30, line_y, width - 41, 9.5, 15, color, max_lines=2)
             line_y -= 32
 
-    def _emoji(self, c: Canvas, icon: str, x: float, y: float, size: float) -> None:
-        """Embed color Emoji as a transparent image; ReportLab fonts lack color-emoji support."""
+    def _emoji(self, c: Canvas, icon: str, x: float, center_y: float, size: float) -> None:
+        """Embed a color Emoji centred on the adjacent text baseline."""
         image = self._emoji_cache.get(icon)
         if image is None and EMOJI_FONT.exists():
             canvas_size = 160
@@ -446,7 +448,7 @@ class PdfReportBuilder:
                 self._emoji_cache[icon] = image
         if image is not None:
             image.seek(0)
-            c.drawImage(ImageReader(image), x, y, width=size, height=size, mask="auto")
+            c.drawImage(ImageReader(image), x, center_y - size / 2, width=size, height=size, mask="auto")
 
     def _multiline_box(self, c: Canvas, x: float, y: float, width: float, height: float, lines: list[str]) -> None:
         c.setFillColor(HexColor("#E5F2FF"))
@@ -472,7 +474,8 @@ class PdfReportBuilder:
     def _charts_image(self, a: ReportAnalysis) -> io.BytesIO:
         set_matplotlib_font()
         figure = plt.figure(figsize=(8.2, 7.1), dpi=150)
-        grid = figure.add_gridspec(2, 2, hspace=0.46, wspace=0.26)
+        figure.patch.set_facecolor("#FCFEFF")
+        grid = figure.add_gridspec(2, 2, hspace=0.50, wspace=0.28)
         self._radar(figure.add_subplot(grid[0, 0], polar=True), a, "入班测板块雷达", False)
         self._radar(figure.add_subplot(grid[0, 1], polar=True), a, "课堂巩固板块雷达", True)
         self._bars(figure.add_subplot(grid[1, 0]), a.student.intro_scores, a.intro_class_average, "入班测 14 讲分数", "#3484A7")
@@ -485,51 +488,76 @@ class PdfReportBuilder:
 
     def _radar(self, axis, a: ReportAnalysis, title: str, consolidation: bool) -> None:
         labels = category_labels(a.categories)
-        personal = [item.score or 0 for item in a.categories] or [0]
+        personal: list[float] = []
+        class_values: list[float] = []
+        missing_data = False
         if consolidation:
             # Consolidation has no per-topic rubric: compare each category's matching lessons.
-            class_values = []
             for item in a.categories:
                 indices = [lesson.lesson - 1 for lesson in item.lessons if lesson.lesson <= 15]
-                class_values.append(average_or_none([a.consolidation_class_average[i] for i in indices]) or 0)
+                class_value = average_or_none([a.consolidation_class_average[i] for i in indices]) or 0
+                class_values.append(class_value)
                 personal_value = average_or_none([a.student.consolidation_scores[i] for i in indices])
-                if personal_value is not None:
-                    personal[len(class_values) - 1] = personal_value
+                if personal_value is None:
+                    missing_data = True
+                    personal.append(class_value)
+                else:
+                    personal.append(personal_value)
         else:
-            class_values = []
             for item in a.categories:
                 indices = [lesson.lesson - 1 for lesson in item.lessons if lesson.lesson <= 14]
-                class_values.append(average_or_none([a.intro_class_average[i] for i in indices]) or 0)
+                class_value = average_or_none([a.intro_class_average[i] for i in indices]) or 0
+                class_values.append(class_value)
+                if item.score is None:
+                    missing_data = True
+                    personal.append(class_value)
+                else:
+                    personal.append(item.score)
+        if not personal:
+            personal, class_values = [0], [0]
         count = len(labels)
         angles = [2 * math.pi * n / count for n in range(count)]
+        axis.set_facecolor("#FBFDFF")
         axis.set_theta_offset(math.pi / 2)
         axis.set_theta_direction(-1)
         axis.set_xticks(angles)
         axis.set_xticklabels(labels, fontsize=7)
         axis.set_ylim(0, 100)
         axis.set_yticks([20, 40, 60, 80, 100])
-        axis.set_yticklabels(["20", "40", "60", "80", "100"], fontsize=5)
+        axis.set_yticklabels(["20", "40", "60", "80", "100"], fontsize=5.5, color="#7B8B99")
+        axis.grid(color="#C9DCE7", linewidth=0.7, alpha=0.9)
+        axis.spines["polar"].set_color("#9FC1D2")
         closed_angles = angles + angles[:1]
-        axis.plot(closed_angles, personal + personal[:1], color="#2687B6", linewidth=1.4, label="个人")
-        axis.fill(closed_angles, personal + personal[:1], color="#2687B6", alpha=0.20)
-        axis.plot(closed_angles, class_values + class_values[:1], color="#E76A77", linewidth=1.1, linestyle="--", label="班级均分")
-        axis.set_title(title, fontsize=8, pad=14)
-        axis.legend(loc="upper right", bbox_to_anchor=(1.24, 1.15), fontsize=5.5)
+        axis.plot(closed_angles, class_values + class_values[:1], color="#ED8A94", linewidth=1.35, linestyle="--", marker="o", markersize=2.5, label="班级均分")
+        axis.fill(closed_angles, class_values + class_values[:1], color="#F9CCD0", alpha=0.24)
+        personal_label = "个人" if not missing_data else "个人（缺失项按班均参考）"
+        axis.plot(closed_angles, personal + personal[:1], color="#1681B5", linewidth=2.0, marker="o", markersize=3, label=personal_label)
+        axis.fill(closed_angles, personal + personal[:1], color="#59B5D8", alpha=0.22)
+        axis.set_title(title, fontsize=8.5, fontweight="bold", color="#215A77", pad=15)
+        axis.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), fontsize=5.4, frameon=False, ncol=1)
 
     @staticmethod
     def _bars(axis, personal: list[float | None], class_scores: list[float | None], title: str, color: str) -> None:
         xs = list(range(1, len(personal) + 1))
-        personal_values = [x if x is not None else 0 for x in personal]
-        class_values = [x if x is not None else 0 for x in class_scores]
-        axis.bar([x - 0.2 for x in xs], personal_values, width=0.38, color=color, label="个人")
-        axis.bar([x + 0.2 for x in xs], class_values, width=0.38, color="#E97985", alpha=0.9, label="班级均分")
-        axis.set_ylim(0, 110)
-        axis.set_title(title, fontsize=8)
-        axis.set_xlabel("讲次", fontsize=6)
-        axis.set_ylabel("分数", fontsize=6)
-        axis.tick_params(labelsize=5.5)
-        axis.legend(fontsize=5.5, loc="lower left")
-        axis.grid(axis="y", alpha=0.2)
+        personal_values = [x if x is not None else float("nan") for x in personal]
+        class_values = [x if x is not None else float("nan") for x in class_scores]
+        axis.set_facecolor("#FBFDFF")
+        axis.bar([x - 0.19 for x in xs], class_values, width=0.34, color="#F2A0A8", alpha=0.78, label="班级均分", zorder=2)
+        axis.bar([x + 0.19 for x in xs], personal_values, width=0.34, color=color, label="个人", zorder=3)
+        axis.set_ylim(0, 108)
+        axis.set_xlim(0.25, len(xs) + 0.75)
+        axis.set_xticks(xs)
+        axis.set_yticks([0, 50, 100])
+        axis.set_title(title, fontsize=8.5, fontweight="bold", color="#215A77", pad=8)
+        axis.set_xlabel("讲次", fontsize=6.5, color="#607382")
+        axis.set_ylabel("分数", fontsize=6.5, color="#607382")
+        axis.tick_params(labelsize=5.8, colors="#607382", length=0)
+        axis.legend(fontsize=5.8, loc="upper left", frameon=False, ncol=2)
+        axis.grid(axis="y", color="#D9E8EF", linewidth=0.7, linestyle="--", zorder=0)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.spines["left"].set_color("#BBD1DE")
+        axis.spines["bottom"].set_color("#BBD1DE")
 
     @staticmethod
     def _lesson_text(number: int, lesson, score: float) -> str:
@@ -538,34 +566,115 @@ class PdfReportBuilder:
         return f"第 {number} 讲 · {lesson.topic}（{lesson.category}） {display_score(score)} 分"
 
     def _recommendation(self, a: ReportAnalysis) -> str:
+        if a.completed_consolidation < 12:
+            return f"先补齐未完成的课堂巩固，再围绕错题做 2 轮订正。"
         if not a.low_lessons:
-            return "保持综合训练，8 月每周安排 1 次讲题复盘。"
-        topics = " / ".join((lesson.topic if lesson else f"第{number}讲") for number, lesson, _ in a.low_lessons[:3])
-        return f"8 月优先进行 {topics} 专题训练，每周复盘错题。"
+            if a.overall_score is not None and a.overall_score >= 90:
+                return "保持每周 1 次综合限时训练，并选 1 道难题讲解思路。"
+            return "保持每周 1 次综合复盘，把易错题整理成个人错题卡。"
+        topics = " / ".join((lesson.topic if lesson else f"第{number}讲") for number, lesson, _ in a.low_lessons[:2])
+        extra = "" if len(a.low_lessons) <= 2 else "等"
+        return f"优先训练 {topics}{extra}，每个专题完成 3-5 题并在一周后复盘。"
+
+    @staticmethod
+    def _learning_band(score: float | None) -> str:
+        if score is None:
+            return "暂缺基础测评数据"
+        if score >= 95:
+            return "基础掌握扎实，解题准确性较高"
+        if score >= 90:
+            return "基础掌握较稳，已具备进阶条件"
+        if score >= 85:
+            return "基础达到稳固水平，可提升综合运用"
+        if score >= 75:
+            return "基础尚可，需优先补齐薄弱点"
+        return "基础需要巩固，建议从核心题型开始复盘"
+
+    @staticmethod
+    def _gap_text(personal: float | None, classmates: list[float | None], label: str) -> str:
+        class_average = average_or_none(classmates)
+        if personal is None or class_average is None:
+            return f"{label}暂无班级对比"
+        gap = personal - class_average
+        if gap >= 4:
+            return f"{label}高于班均 {gap:.1f} 分"
+        if gap >= 1:
+            return f"{label}略高于班均 {gap:.1f} 分"
+        if gap > -1:
+            return f"{label}与班均基本持平"
+        return f"{label}低于班均 {abs(gap):.1f} 分"
+
+    def _core_strength_text(self, a: ReportAnalysis) -> str:
+        strong = [item for item in a.categories if item.score is not None and item.score >= 85]
+        names = " / ".join(f"{item.category} {item.score:.0f}分" for item in strong[:3])
+        if not names:
+            return f"{self._learning_band(a.intro_average)}；建议先建立核心题型的解题步骤。"
+        class_text = self._gap_text(a.intro_average, a.intro_class_average, "入班测")
+        return f"{names}表现突出；{class_text}，{self._learning_band(a.intro_average)}。"
+
+    def _core_weakness_text(self, a: ReportAnalysis) -> str:
+        if not a.low_lessons:
+            return f"暂无低于 85 分的讲次；课堂巩固已完成 {a.completed_consolidation}/15 讲，可保持综合训练。"
+        topics = " / ".join(
+            (lesson.topic if lesson else f"第{number}讲") for number, lesson, _ in a.low_lessons[:3]
+        )
+        count_text = "1 个待巩固点" if len(a.low_lessons) == 1 else f"{len(a.low_lessons)} 个待巩固点"
+        return f"{topics}为当前重点，存在 {count_text}；建议先订正，再完成同类题强化。"
 
     def _diagnostic_lines(self, a: ReportAnalysis) -> list[str]:
-        final_text = "期末测评暂无数据，主要参考入班测与课堂巩固。"
-        if a.final_score is not None and a.intro_average is not None:
-            final_text = f"期末测评 {display_score(a.final_score)} 分，相比入班测 {a.final_score - a.intro_average:+.1f} 分。"
-        strong = " / ".join(item.category for item in a.categories if item.score is not None and item.score >= 85) or "暂无"
-        weak = " / ".join(lesson.topic for _, lesson, _ in a.low_lessons if lesson) or "暂无明显弱项"
+        intro_gap = self._gap_text(a.intro_average, a.intro_class_average, "入班测")
+        consolidation_gap = None
+        class_consolidation = average_or_none(a.consolidation_class_average)
+        if a.consolidation_average is not None and class_consolidation is not None:
+            consolidation_gap = a.consolidation_average - class_consolidation
+        trend = "暂无课堂巩固趋势"
+        if a.intro_average is not None and a.consolidation_average is not None:
+            change = a.consolidation_average - a.intro_average
+            if change >= 3:
+                trend = f"较入班测提升 {change:.1f} 分，训练效果明显"
+            elif change <= -3:
+                trend = f"较入班测下降 {abs(change):.1f} 分，需复盘错题"
+            else:
+                trend = "与入班测基本持平，过程表现稳定"
+        strong = " / ".join(item.category for item in a.categories if item.score is not None and item.score >= 85) or "暂无明显强项"
+        weak = " / ".join(lesson.topic for _, lesson, _ in a.low_lessons if lesson) or "暂无低于 85 分的讲次"
+        final_text = "期末测评暂缺，建议后续补测以验证阶段成果"
+        if a.final_score is not None:
+            if a.final_class_average is not None:
+                final_gap = a.final_score - a.final_class_average
+                relation = "高于" if final_gap >= 0 else "低于"
+                final_text = f"期末 {display_score(a.final_score)} 分，{relation}班均 {abs(final_gap):.1f} 分，排名 {a.final_rank}"
+            else:
+                final_text = f"期末测评 {display_score(a.final_score)} 分，排名 {a.final_rank}"
+        process_gap = ""
+        if consolidation_gap is not None:
+            process_gap = f"，较班均 {consolidation_gap:+.1f} 分"
         return [
-            f"1. 错因定位：入班测 {fmt(a.intro_average, 2)} 分；{final_text}",
-            f"2. 直觉建立：{strong} 板块基础较稳；待巩固：{weak}。",
-            f"3. 讲解能力：课堂巩固 15 讲均 {fmt(a.consolidation_average, 2)} 分，建议每周安排 1 次讲题复盘。",
-            f"4. 自适应出题：当前 {a.student.grade} {a.rating} 水平，强项可挑战综合应用 2-3 道。",
-            f"5. 学习路线图：{self._recommendation(a)}",
+            f"1. 基础定位：入班测 {fmt(a.intro_average, 2)} 分，{intro_gap}；{self._learning_band(a.intro_average)}。",
+            f"2. 过程表现：课堂巩固 {fmt(a.consolidation_average, 2)} 分，{trend}{process_gap}；已完成 {a.completed_consolidation}/15 讲。",
+            f"3. 结构画像：强项集中在 {strong}；当前优先巩固 {weak}。",
+            f"4. 阶段验证：{final_text}。",
+            f"5. 行动路径：{self._recommendation(a)}",
         ]
 
     @staticmethod
     def _summary_text(a: ReportAnalysis) -> str:
         strong_count = sum(item.score is not None and item.score >= 85 for item in a.categories)
-        final_text = "期末测评未参加" if a.final_score is None else f"期末测评 {display_score(a.final_score)} 分，班级排名 {a.final_rank}"
+        final_text = "期末测评未参加" if a.final_score is None else f"期末 {display_score(a.final_score)} 分、{a.final_rank}"
         overall = fmt(a.overall_score, 1)
+        process_text = f"课堂巩固 {fmt(a.consolidation_average, 2)} 分，{a.completed_consolidation}/15 讲完成"
+        trend_text = ""
+        if a.intro_average is not None and a.consolidation_average is not None:
+            change = a.consolidation_average - a.intro_average
+            if change >= 3:
+                trend_text = f"，较入班测提升 {change:.1f} 分"
+            elif change <= -3:
+                trend_text = f"，较入班测回落 {abs(change):.1f} 分"
+            else:
+                trend_text = "，过程表现稳定"
         return (
-            f"本次夏季班入班测 14 讲平均 {fmt(a.intro_average, 2)} 分，{strong_count} 个板块均不低于 85 分，"
-            f"{len(a.low_lessons)} 个弱项讲次；课堂巩固 15 讲均 {fmt(a.consolidation_average, 2)} 分，{final_text}。"
-            f"综合评分 {overall}/100，整体水平 {a.rating}。"
+            f"入班测 {fmt(a.intro_average, 2)} 分，{strong_count} 个板块不低于 85 分，{len(a.low_lessons)} 个弱项讲次；"
+            f"{process_text}{trend_text}。{final_text}；综合 {overall}/100，{a.rating}。"
         )
 
     @staticmethod
