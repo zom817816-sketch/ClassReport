@@ -11,7 +11,7 @@ import requests
 
 
 API_ROOT = "https://open.feishu.cn/open-apis"
-DEFAULT_BASE_URL = "https://xinzhoujy.feishu.cn/base/workspace/SSYlso3nkpmYP9chzBFcHQcCnnb"
+DEFAULT_BASE_URL = "https://xinzhoujy.feishu.cn/base/Hk0Cbddrqa6ClmsIUTMcIhTdnOh"
 
 # Expected report-input tables. A table may be named either the short key or the
 # historical CSV filename; normalised matching covers both forms.
@@ -21,6 +21,12 @@ REPORT_TABLES = {
     "学生名单_学员信息": "学生名单导入_学生名单_学员信息.csv",
     "期末测评分数": "学生名单导入_期末测评分数.csv",
     "课堂巩固分数": "学生名单导入_课堂巩固分数.csv",
+}
+
+# Current Base uses this concise title for the student profile table, while the
+# original offline source includes the longer import prefix.
+REPORT_TABLE_ALIASES = {
+    "学生名单": "学生名单导入_学生名单_学员信息.csv",
 }
 
 
@@ -53,7 +59,10 @@ def parse_base_token(base_url: str) -> str:
     base_index = parts.index("base")
     token_parts = parts[base_index + 1 :]
     if token_parts and token_parts[0] == "workspace":
-        token_parts = token_parts[1:]
+        raise ValueError(
+            "该链接是多维表格工作区页，不能作为具体数据表的 app_token。"
+            "请进入目标多维表格后，复制形如 https://<tenant>.feishu.cn/base/<app_token> 的链接。"
+        )
     if not token_parts or not re.fullmatch(r"[A-Za-z0-9]+", token_parts[0]):
         raise ValueError("无法从多维表格链接中识别 app_token。")
     return token_parts[0]
@@ -69,8 +78,8 @@ def read_env(path: Path) -> dict[str, str]:
             continue
         key, value = stripped.split("=", 1)
         values[key.strip()] = value.strip().strip('"').strip("'")
-    if not values.get("APP_ID") or not values.get("APP_SECRET"):
-        raise ValueError(".env 必须包含 APP_ID 和 APP_SECRET。")
+    if not values.get("USER_ACCESS_TOKEN") and (not values.get("APP_ID") or not values.get("APP_SECRET")):
+        raise ValueError(".env 必须包含 USER_ACCESS_TOKEN，或同时包含 APP_ID 和 APP_SECRET。")
     return values
 
 
@@ -84,6 +93,8 @@ def normalise_name(name: str) -> str:
 
 def report_filename(table_name: str) -> str | None:
     normalised = normalise_name(table_name)
+    if normalised in REPORT_TABLE_ALIASES:
+        return REPORT_TABLE_ALIASES[normalised]
     matches = []
     for short_name, filename in REPORT_TABLES.items():
         expected = normalise_name(short_name)
@@ -122,10 +133,17 @@ def cell_to_text(value: object) -> str:
 
 
 class FeishuBitableExporter:
-    def __init__(self, app_id: str, app_secret: str, app_token: str):
+    def __init__(
+        self,
+        app_id: str | None,
+        app_secret: str | None,
+        app_token: str,
+        user_access_token: str | None = None,
+    ):
         self.app_id = app_id
         self.app_secret = app_secret
         self.app_token = app_token
+        self.user_access_token = user_access_token
         self.session = requests.Session()
 
     def _request(self, method: str, path: str, *, token: str | None = None, **kwargs) -> dict:
@@ -152,6 +170,8 @@ class FeishuBitableExporter:
         return payload
 
     def tenant_access_token(self) -> str:
+        if not self.app_id or not self.app_secret:
+            raise FeishuApiError("未配置 APP_ID / APP_SECRET，无法获取应用身份令牌。")
         payload = self._request(
             "POST",
             "/auth/v3/tenant_access_token/internal/",
@@ -161,6 +181,10 @@ class FeishuBitableExporter:
         if not token:
             raise FeishuApiError("飞书未返回 tenant_access_token。")
         return token
+
+    def access_token(self) -> str:
+        """Prefer a user token so the export follows the user's Base permissions."""
+        return self.user_access_token or self.tenant_access_token()
 
     def list_tables(self, token: str) -> list[dict]:
         tables: list[dict] = []
@@ -217,7 +241,7 @@ class FeishuBitableExporter:
         report_data_dir = destination_root / "feishu"
         raw_dir.mkdir(parents=True, exist_ok=True)
         report_data_dir.mkdir(parents=True, exist_ok=True)
-        token = self.tenant_access_token()
+        token = self.access_token()
         exported: list[ExportedTable] = []
         manifest_rows: list[dict[str, str]] = []
         for table in self.list_tables(token):
@@ -253,5 +277,10 @@ class FeishuBitableExporter:
 def sync_from_url(project_root: Path, base_url: str = DEFAULT_BASE_URL) -> ExportResult:
     env = read_env(project_root / ".env")
     app_token = parse_base_token(base_url)
-    exporter = FeishuBitableExporter(env["APP_ID"], env["APP_SECRET"], app_token)
+    exporter = FeishuBitableExporter(
+        env.get("APP_ID"),
+        env.get("APP_SECRET"),
+        app_token,
+        env.get("USER_ACCESS_TOKEN"),
+    )
     return exporter.export(project_root / "data")
