@@ -276,6 +276,8 @@ class FeishuBitableExporter:
 
 def sync_from_url(project_root: Path, base_url: str = DEFAULT_BASE_URL) -> ExportResult:
     env = read_env(project_root / ".env")
+    if base_url == DEFAULT_BASE_URL and env.get("FEISHU_URL"):
+        base_url = env["FEISHU_URL"]
     app_token = parse_base_token(base_url)
     exporter = FeishuBitableExporter(
         env.get("APP_ID"),

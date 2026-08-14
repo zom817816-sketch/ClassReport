@@ -37,6 +37,24 @@ python run.py --sync-feishu --sync-only
 - `manifests/class_packages.csv`：班级压缩包清单。
 - `manifests/data_quality_report.csv`：数据缺失、姓名未匹配等需要人工核对的记录。
 
+## 打包给课程老师使用
+
+项目提供了 Windows 教师版发布脚本。教师版是一个文件夹，老师不需要安装 Python：首次由管理员填写一次 `.env`，之后双击“`一键生成课情报告.bat`”即可同步飞书、生成报告并打开班级压缩包目录。
+
+在管理员电脑的 `ClassReport` 目录运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build_teacher_release.ps1
+```
+
+脚本会在 `release/` 下创建带时间戳的“课情报告教师版”文件夹。默认仅带配置模板，管理员应在发布包的 `.env` 中填写 `USER_ACCESS_TOKEN`；若仅向获授权的可信教师设备分发，并需要一并复制当前配置，可使用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build_teacher_release.ps1 -UseCurrentConfig
+```
+
+发布包附带 [教师版使用说明.md](教师版使用说明.md)。不要将包含真实令牌或应用密钥的 `.env` 提交到代码仓库或发到公开群组。
+
 ## 常用参数
 
 ```powershell
