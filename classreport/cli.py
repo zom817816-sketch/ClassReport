@@ -11,6 +11,7 @@ from pathlib import Path
 from .analysis import build_analysis
 from .config import Settings
 from .data import DataRepository
+from .feishu import DEFAULT_BASE_URL, FeishuApiError, sync_from_url
 from .pdf_report import PdfReportBuilder, safe_filename
 
 
@@ -21,13 +22,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--teacher", default="毛远老师", help="指导老师姓名")
     parser.add_argument("--keep-output", action="store_true", help="保留既有 output 文件，不清空旧结果")
     parser.add_argument("--no-encrypt", action="store_true", help="仅调试时使用：不加密 PDF")
+    parser.add_argument("--sync-feishu", action="store_true", help="先从飞书多维表格下载最新数据，再生成报告")
+    parser.add_argument("--sync-only", action="store_true", help="仅下载飞书多维表格，不生成报告（需配合 --sync-feishu）")
+    parser.add_argument("--feishu-url", default=DEFAULT_BASE_URL, help="飞书多维表格 URL")
+    parser.add_argument("--data-dir", type=Path, help="指定报告输入 CSV 目录；默认使用 data/")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     root = args.root.resolve()
-    settings = Settings(root=root, report_date=args.date, teacher=args.teacher)
+    source_data_dir = args.data_dir.resolve() if args.data_dir else root / "data"
+    if args.sync_only and not args.sync_feishu:
+        raise SystemExit("--sync-only 需要与 --sync-feishu 一起使用。")
+    if args.sync_feishu:
+        try:
+            result = sync_from_url(root, args.feishu_url)
+        except (FeishuApiError, FileNotFoundError, ValueError) as error:
+            raise SystemExit(f"飞书同步失败：{error}") from error
+        source_data_dir = result.report_data_dir
+        matched = sum(table.report_path is not None for table in result.tables)
+        print(f"飞书同步完成：下载 {len(result.tables)} 张数据表，其中 {matched} 张匹配课情报告数据结构。")
+        print(f"原始数据：{result.raw_dir}")
+        print(f"报告数据：{result.report_data_dir}")
+        if args.sync_only:
+            return
+    settings = Settings(root=root, report_date=args.date, teacher=args.teacher, source_data_dir=source_data_dir)
     if settings.output_dir.exists() and not args.keep_output:
         shutil.rmtree(settings.output_dir)
     for directory in (settings.reports_dir, settings.packages_dir, settings.manifests_dir):

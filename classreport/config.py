@@ -12,10 +12,11 @@ class Settings:
     root: Path
     report_date: date
     teacher: str = "毛远老师"
+    source_data_dir: Path | None = None
 
     @property
     def data_dir(self) -> Path:
-        return self.root / "data"
+        return self.source_data_dir or self.root / "data"
 
     @property
     def output_dir(self) -> Path:
