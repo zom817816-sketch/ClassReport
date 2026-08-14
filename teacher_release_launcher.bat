@@ -2,7 +2,7 @@
 setlocal
 set "ROOT=%~dp0"
 
-"%ROOT%ClassReportGenerator\ClassReportGenerator.exe"
+"%ROOT%ClassReportGenerator.exe"
 set "EXIT_CODE=%ERRORLEVEL%"
 
 if not "%EXIT_CODE%"=="0" (
