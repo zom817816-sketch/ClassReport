@@ -6,16 +6,17 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $python = 'python'
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+$appName = 'ClassReportGenerator'
 $stagingRoot = Join-Path $projectRoot "build\teacher_$timestamp"
 $distRoot = Join-Path $stagingRoot 'dist'
-$releaseRoot = Join-Path $projectRoot "release\课情报告教师版_$timestamp"
+$releaseRoot = Join-Path $projectRoot "release\ClassReport_Teacher_$timestamp"
 
 & $python -m pip install -r (Join-Path $projectRoot 'requirements-build.txt')
-& $python -m PyInstaller --noconfirm --clean --onedir --name '课情报告生成器' --distpath $distRoot --workpath (Join-Path $stagingRoot 'work') --specpath $stagingRoot --collect-all matplotlib --collect-all reportlab (Join-Path $projectRoot 'teacher_launcher.py')
+& $python -m PyInstaller --noconfirm --clean --onedir --name $appName --distpath $distRoot --workpath (Join-Path $stagingRoot 'work') --specpath $stagingRoot --collect-data matplotlib --collect-data reportlab (Join-Path $projectRoot 'teacher_launcher.py')
 
 New-Item -ItemType Directory -Force -Path $releaseRoot | Out-Null
-Copy-Item -Recurse (Join-Path $distRoot '课情报告生成器') $releaseRoot
-Copy-Item (Join-Path $projectRoot 'teacher_release_launcher.bat') (Join-Path $releaseRoot '一键生成课情报告.bat')
+Copy-Item -Recurse (Join-Path $distRoot $appName) $releaseRoot
+Copy-Item (Join-Path $projectRoot 'teacher_release_launcher.bat') (Join-Path $releaseRoot 'Start_Generate_Reports.bat')
 Copy-Item (Join-Path $projectRoot '教师版使用说明.md') $releaseRoot
 Copy-Item (Join-Path $projectRoot 'teacher_config.env.example') (Join-Path $releaseRoot '.env')
 
