@@ -15,7 +15,7 @@ from .feishu import DEFAULT_BASE_URL, FeishuApiError, sync_from_url
 from .pdf_report import PdfReportBuilder, safe_filename
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="一键生成夏季班学情报告")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1], help="ClassReport 项目目录")
     parser.add_argument("--date", type=date.fromisoformat, default=date.today(), help="报告日期，格式 YYYY-MM-DD")
@@ -26,11 +26,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sync-only", action="store_true", help="仅下载飞书多维表格，不生成报告（需配合 --sync-feishu）")
     parser.add_argument("--feishu-url", default=DEFAULT_BASE_URL, help="飞书多维表格 URL")
     parser.add_argument("--data-dir", type=Path, help="指定报告输入 CSV 目录；默认使用 data/")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     root = args.root.resolve()
     source_data_dir = args.data_dir.resolve() if args.data_dir else root / "data"
     if args.sync_only and not args.sync_feishu:

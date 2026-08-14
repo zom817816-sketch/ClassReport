@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -78,8 +79,33 @@ def read_env(path: Path) -> dict[str, str]:
             continue
         key, value = stripped.split("=", 1)
         values[key.strip()] = value.strip().strip('"').strip("'")
+    _validate_credentials(values)
+    return values
+
+
+def _validate_credentials(values: dict[str, str]) -> None:
     if not values.get("USER_ACCESS_TOKEN") and (not values.get("APP_ID") or not values.get("APP_SECRET")):
         raise ValueError(".env 必须包含 USER_ACCESS_TOKEN，或同时包含 APP_ID 和 APP_SECRET。")
+
+
+def read_project_env(project_root: Path) -> dict[str, str]:
+    """Read bundled defaults first, then let local configuration override them."""
+    values: dict[str, str] = {}
+    bundled_root = getattr(sys, "_MEIPASS", None)
+    paths = []
+    if bundled_root:
+        paths.append(Path(bundled_root) / "embedded" / ".env")
+    paths.extend([project_root / ".env", project_root / "ClassReportGenerator.config.env"])
+    for path in paths:
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    _validate_credentials(values)
     return values
 
 
@@ -275,7 +301,7 @@ class FeishuBitableExporter:
 
 
 def sync_from_url(project_root: Path, base_url: str = DEFAULT_BASE_URL) -> ExportResult:
-    env = read_env(project_root / ".env")
+    env = read_project_env(project_root)
     if base_url == DEFAULT_BASE_URL and env.get("FEISHU_URL"):
         base_url = env["FEISHU_URL"]
     app_token = env.get("FEISHU_APP_TOKEN") or parse_base_token(base_url)
