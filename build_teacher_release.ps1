@@ -17,6 +17,7 @@ $releaseRoot = Join-Path $projectRoot "release\ClassReport_Teacher_$timestamp"
 New-Item -ItemType Directory -Force -Path $releaseRoot | Out-Null
 Copy-Item -Recurse (Join-Path $distRoot $appName) $releaseRoot
 Copy-Item (Join-Path $projectRoot 'teacher_release_launcher.bat') (Join-Path $releaseRoot 'Start_Generate_Reports.bat')
+Copy-Item (Join-Path $projectRoot 'teacher_config_launcher.bat') (Join-Path $releaseRoot 'Configure_Feishu.bat')
 Copy-Item (Join-Path $projectRoot '教师版使用说明.md') $releaseRoot
 Copy-Item (Join-Path $projectRoot 'teacher_config.env.example') (Join-Path $releaseRoot '.env')
 
