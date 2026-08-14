@@ -27,6 +27,8 @@ python run.py --sync-feishu --sync-only
 
 默认多维表格是项目配置的课情报告 Base，也可使用 `--feishu-url "<Base URL>"` 替换。所有数据表会下载到 `data/feishu_raw/`；名称匹配报告数据结构的表会同时写入 `data/feishu/` 并作为本次生成的数据源。下载清单见 `data/feishu_download_manifest.csv`。
 
+也可在 `.env` 中配置 `FEISHU_APP_TOKEN=<app_token>`；该值优先于 Base 链接，适合切换不同多维表格而不修改命令。
+
 飞书开放平台需为应用开通任一应用身份读取权限：`bitable:app:readonly`、`bitable:app` 或 `base:table:read`。若 Base 启用了高级权限，还需将应用添加为协作者并授予相应角色。
 
 报告会输出到 `output/`：

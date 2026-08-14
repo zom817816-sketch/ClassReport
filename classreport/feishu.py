@@ -278,7 +278,9 @@ def sync_from_url(project_root: Path, base_url: str = DEFAULT_BASE_URL) -> Expor
     env = read_env(project_root / ".env")
     if base_url == DEFAULT_BASE_URL and env.get("FEISHU_URL"):
         base_url = env["FEISHU_URL"]
-    app_token = parse_base_token(base_url)
+    app_token = env.get("FEISHU_APP_TOKEN") or parse_base_token(base_url)
+    if not re.fullmatch(r"[A-Za-z0-9]+", app_token):
+        raise ValueError("FEISHU_APP_TOKEN 格式无效，应为多维表格链接中的 app_token。")
     exporter = FeishuBitableExporter(
         env.get("APP_ID"),
         env.get("APP_SECRET"),
