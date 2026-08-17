@@ -181,7 +181,13 @@ class PdfReportBuilder:
         student_scores = [display_score(x) for x in a.student.consolidation_scores]
         class_scores = [fmt(x, 1) for x in a.consolidation_class_average]
         accuracy = ["—" if x is None else f"{x:.0f}%" for x in a.student.consolidation_scores]
-        y = self._table(c, 48, y, [65] + [31.2] * 15, headers, [
+        # Keep all 15 lesson columns inside the 48pt page margins.  The old
+        # fixed widths added up to 533pt, which clipped the final lesson on
+        # the right when printed or viewed on paper.
+        content_width = PAGE_W - 96
+        lesson_label_width = 62
+        lesson_cell_width = (content_width - lesson_label_width) / 15
+        y = self._table(c, 48, y, [lesson_label_width] + [lesson_cell_width] * 15, headers, [
             ["分数"] + student_scores,
             [f"班级 {len(a.student.classmates_consolidation)} 人均"] + class_scores,
             ["正确率"] + accuracy,
@@ -252,35 +258,24 @@ class PdfReportBuilder:
             ("🚀", DEEP_BLUE, f"建议：{self._recommendation(a)}"),
         ])
         self._section(c, "⑧ ◆ 诊断分析（多维度）", 613)
-        c.setFillColor(HEADING)
-        c.setFont(FONT_BOLD, 13)
-        c.drawString(48, 579, f"强项（{len(a.categories)} 板块 · {len(strengths)} 个强板块）")
-        c.setFillColor(TEXT)
-        c.setFont(FONT, 9.6)
-        bullet_y = 555
-        if strengths:
-            for item in strengths[:5]:
-                c.drawString(70, bullet_y, f"• {item.category} {item.score:.1f} 分（板块均）")
-                bullet_y -= 18
-        else:
-            c.drawString(70, bullet_y, "• 暂无足够成绩判断强项")
-            bullet_y -= 18
         full_count = sum(x == 100 for x in a.student.intro_scores if x is not None)
-        c.drawString(70, bullet_y, f"• {full_count} 讲满分（100 分）")
-        c.setFillColor(HEADING)
-        c.setFont(FONT_BOLD, 13)
-        c.drawString(48, 445, f"待加强（{sum(x.score is not None and x.score < 85 for x in a.categories)} 板块 · {len(a.low_lessons)} 个弱项讲次）")
-        c.setFillColor(TEXT)
-        c.setFont(FONT, 9.6)
-        weak_y = 420
-        if a.low_lessons:
-            for number, lesson, score in a.low_lessons[:5]:
-                c.drawString(70, weak_y, f"• {self._lesson_text(number, lesson, score)}")
-                weak_y -= 18
-        else:
-            c.drawString(70, weak_y, "• 当前各讲分数稳定，建议保持综合训练。")
+        strength_items = [f"{item.category} {item.score:.1f} 分（板块均）" for item in strengths[:3]]
+        strength_items.append(f"{full_count} 讲满分（100 分）")
+        if not strengths:
+            strength_items[0] = "暂无足够成绩判断强项"
+        weak_items = [self._lesson_text(number, lesson, score) for number, lesson, score in a.low_lessons[:4]]
+        if not weak_items:
+            weak_items = ["当前各讲分数稳定，建议保持综合训练。"]
+        self._diagnostic_card(
+            c, 48, 425, 238, 160,
+            f"强项 · {len(strengths)} 个强板块", strength_items, GREEN,
+        )
+        self._diagnostic_card(
+            c, 309, 425, 238, 160,
+            f"待加强 · {len(a.low_lessons)} 个弱项讲次", weak_items, ORANGE,
+        )
         notes = self._diagnostic_lines(a)
-        self._multiline_box(c, 48, 166, 499, 195, notes)
+        self._multiline_box(c, 48, 92, 499, 308, notes)
         c.showPage()
 
     def _summary_page(self, c: Canvas, a: ReportAnalysis) -> None:
@@ -404,7 +399,10 @@ class PdfReportBuilder:
         return y
 
     def _mini_matrix(self, c: Canvas, x: float, y: float, rows: list[list[str]]) -> None:
-        label_width, cell_width, row_h = 65, 34.4, 21
+        # Fourteen lesson columns must share the same printable width as the
+        # tables above; fixed 34.4pt cells previously ran beyond the margin.
+        label_width, row_h = 58, 21
+        cell_width = (PAGE_W - 96 - label_width) / 14
         for row_index, row in enumerate(rows):
             current_y = y - row_index * row_h
             c.setFillColor(BLUE if row_index == 0 else (LIGHT_BLUE if row_index % 2 else white))
@@ -427,6 +425,24 @@ class PdfReportBuilder:
             self._emoji(c, icon, x + 11, line_y + 3, 13)
             self._wrapped(c, text, x + 30, line_y, width - 41, 9.5, 15, color, max_lines=2)
             line_y -= 32
+
+    def _diagnostic_card(
+        self, c: Canvas, x: float, y: float, width: float, height: float,
+        title: str, items: list[str], accent: Color,
+    ) -> None:
+        """Compact paired cards keep the diagnosis page visually balanced."""
+        c.setFillColor(PALE_BLUE)
+        c.roundRect(x, y, width, height, 5, fill=1, stroke=0)
+        c.setFillColor(accent)
+        c.roundRect(x, y + height - 29, width, 29, 5, fill=1, stroke=0)
+        c.rect(x, y + height - 29, width, 6, fill=1, stroke=0)
+        c.setFillColor(white)
+        c.setFont(FONT_BOLD, 10.5)
+        c.drawString(x + 12, y + height - 19, title)
+        cursor = y + height - 48
+        for item in items[:4]:
+            self._wrapped(c, f"• {item}", x + 12, cursor, width - 24, 8.7, 12, TEXT, max_lines=2)
+            cursor -= 24
 
     def _emoji(self, c: Canvas, icon: str, x: float, center_y: float, size: float) -> None:
         """Embed a color Emoji centred on the adjacent text baseline."""
@@ -455,12 +471,16 @@ class PdfReportBuilder:
         c.rect(x, y, width, height, fill=1, stroke=0)
         c.setFillColor(DEEP_BLUE)
         c.rect(x, y, 4, height, fill=1, stroke=0)
-        cursor = y + height - 22
+        c.setFillColor(DEEP_BLUE)
+        c.setFont(FONT_BOLD, 10.5)
+        c.drawString(x + 14, y + height - 22, "五维诊断结论")
+        cursor = y + height - 52
+        line_gap = max(34, (height - 76) / max(len(lines), 1))
         for line in lines:
             c.setFillColor(TEXT)
             c.setFont(FONT, 9.4)
             self._wrapped(c, line, x + 12, cursor, width - 24, 9.4, 18, TEXT, max_lines=2)
-            cursor -= 34
+            cursor -= line_gap
 
     def _watermark(self, c: Canvas, a: ReportAnalysis, center_y: float = PAGE_H / 2) -> None:
         c.saveState()

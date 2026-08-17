@@ -1,6 +1,9 @@
 ﻿$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$python = 'python'
+$python = 'D:\ProgramFiles\miniforge\python.exe'
+if (-not (Test-Path -LiteralPath $python)) {
+    $python = (Get-Command python -ErrorAction Stop).Source
+}
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $appName = 'ClassReportTeacherGUI'
 $stagingRoot = Join-Path $projectRoot "build\gui_$timestamp"
