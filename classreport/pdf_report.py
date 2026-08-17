@@ -194,7 +194,7 @@ class PdfReportBuilder:
         ]
         self._cards(c, cards, y)
         y = 622
-        self._section(c, "② ★ 课堂巩固（夏季班 · 15讲 · 100 分制）", y)
+        self._section(c, "② 课堂巩固（夏季班 · 15讲 · 100 分制）", y)
         y -= 27
         self._note(c, "统计规则：课堂巩固共 15 讲；空白成绩按未完成处理。", y, "📌")
         y -= 28
@@ -221,7 +221,7 @@ class PdfReportBuilder:
         c.setFont(FONT, 8.6)
         c.drawString(48, y - 15, f"课堂巩固 15 讲均 {fmt(a.consolidation_average, 2)}，班级均 {fmt(cls_avg, 2)}（差 {difference:+.1f}）；{a.completed_consolidation}/15 讲已完成。" if difference is not None else f"课堂巩固已完成 {a.completed_consolidation}/15 讲。")
         y -= 53
-        self._section(c, f"③ ◆ 入班测 {len(a.categories)} 板块 + 14 讲分数（100 分制）", y)
+        self._section(c, f"③ 入班测 {len(a.categories)} 板块 + 14 讲分数（100 分制）", y)
         y -= 27
         self._note(c, "入班测覆盖夏季班前 14 讲重点题型，100 分制标准化。", y, "📌")
         y -= 28
@@ -244,7 +244,7 @@ class PdfReportBuilder:
         c.showPage()
 
     def _charts_page(self, c: Canvas, a: ReportAnalysis) -> None:
-        self._page_base(c, a, "④ ◆ 板块雷达 + 各讲分数趋势（入班测 vs 课堂巩固 · 100 分制）")
+        self._page_base(c, a, "④ 板块雷达 + 各讲分数趋势（入班测 vs 课堂巩固 · 100 分制）")
         c.setFillColor(MUTED)
         # Match the template's two-line reading guide: explain both the
         # block-level radar comparison and the lesson-level bar comparison.
@@ -256,7 +256,7 @@ class PdfReportBuilder:
         self._wrapped(c, chart_caption, 67, 712, 478, 8.5, 12, MUTED, max_lines=2)
         image = self._charts_image(a)
         c.drawImage(ImageReader(image), 49, 265, width=497, height=420, preserveAspectRatio=True, mask="auto")
-        self._section(c, f"⑤ ▲ 入门测 vs 期末测评（5 维度对比 · {len(a.student.classmates_final)} 人班级）", 238)
+        self._section(c, f"⑤ 入门测 vs 期末测评（5 维度对比 · {len(a.student.classmates_final)} 人班级）", 238)
         final_diff = a.final_score - a.intro_average if a.final_score is not None and a.intro_average is not None else None
         final_rows = [
             ["分数（100 分制）", f"{fmt(a.intro_average, 2)} / 100", f"{display_score(a.final_score)} / 100", f"{final_diff:+.1f}" if final_diff is not None else "未参加"],
@@ -277,7 +277,7 @@ class PdfReportBuilder:
         c.showPage()
 
     def _diagnosis_page(self, c: Canvas, a: ReportAnalysis) -> None:
-        self._page_base(c, a, "⑦ ★ 核心判断 & 建议")
+        self._page_base(c, a, "⑦ 核心判断 & 建议")
         strengths = [item for item in a.categories if item.score is not None and item.score >= 85]
         strength_text = self._core_strength_text(a)
         low_text = self._core_weakness_text(a)
@@ -286,7 +286,7 @@ class PdfReportBuilder:
             ("⚠️", RED, f"不足：{low_text}"),
             ("🚀", DEEP_BLUE, f"建议：{self._recommendation(a)}"),
         ])
-        self._section(c, "⑧ ◆ 诊断分析（多维度）", 613)
+        self._section(c, "⑧ 诊断分析（多维度）", 613)
         full_count = sum(x == 100 for x in a.student.intro_scores if x is not None)
         strength_items = [f"{item.category} {item.score:.1f} 分（板块均）" for item in strengths[:3]]
         strength_items.append(f"{full_count} 讲满分（100 分）")
@@ -310,7 +310,7 @@ class PdfReportBuilder:
         c.showPage()
 
     def _summary_page(self, c: Canvas, a: ReportAnalysis) -> None:
-        self._page_base(c, a, "⑨ ● 整体分析")
+        self._page_base(c, a, "⑨ 整体分析")
         c.setFillColor(HEADING)
         c.setFont(FONT_HEAVY, 13)
         c.drawString(70, 714, "整体评价")
@@ -443,10 +443,14 @@ class PdfReportBuilder:
     def _mini_matrix(self, c: Canvas, x: float, y: float, rows: list[list[str]]) -> None:
         # Fourteen lesson columns must share the same printable width as the
         # tables above; fixed 34.4pt cells previously ran beyond the margin.
-        label_width, row_h = 58, 19
+        label_width, standard_row_h = 58, 19
         cell_width = (PAGE_W - 96 - label_width) / 14
+        cursor_y = y
         for row_index, row in enumerate(rows):
-            current_y = y - row_index * row_h
+            # Knowledge-point names are intentionally fully visible.  This
+            # row grows to allow one name per cell to wrap onto a second line.
+            row_h = 34 if row_index == 2 else standard_row_h
+            current_y = cursor_y
             c.setFillColor(BLUE if row_index == 0 else (LIGHT_BLUE if row_index % 2 else white))
             c.rect(x, current_y - row_h, label_width + cell_width * 14, row_h, fill=1, stroke=0)
             if row_index > 0:
@@ -454,12 +458,43 @@ class PdfReportBuilder:
                 c.rect(x, current_y - row_h, label_width, row_h, fill=1, stroke=0)
             c.setFillColor(white)
             c.setFont(FONT_BOLD, 7.3)
-            self._center_ellipsize(c, row[0], x + label_width / 2, current_y - 13, label_width - 4, 7.3)
+            label_y = current_y - 13 if row_h == standard_row_h else current_y - 20
+            self._center_ellipsize(c, row[0], x + label_width / 2, label_y, label_width - 4, 7.3)
             c.setFont(FONT_BOLD if row_index == 0 else FONT, 7.1)
             for index, value in enumerate(row[1:]):
                 color = GREEN if row_index == 3 and value not in ("—", "") and float(value) >= 85 else (ORANGE if row_index == 3 and value not in ("—", "") else (white if row_index == 0 else TEXT))
                 c.setFillColor(color)
-                self._center_ellipsize(c, value, x + label_width + cell_width * index + cell_width / 2, current_y - 13, cell_width - 3, 7.1)
+                cell_x = x + label_width + cell_width * index + cell_width / 2
+                if row_index == 2:
+                    self._center_cell_wrapped(c, value, cell_x, current_y, row_h, cell_width - 2, 6.6, color)
+                else:
+                    self._center_ellipsize(c, value, cell_x, current_y - 13, cell_width - 3, 7.1)
+            cursor_y -= row_h
+
+    def _center_cell_wrapped(
+        self, c: Canvas, text: object, center_x: float, top_y: float, height: float,
+        width: float, size: float, color: Color,
+    ) -> None:
+        """Centre full Chinese knowledge-point names without ellipsizing."""
+        value = str(text)
+        lines: list[str] = []
+        line = ""
+        for character in value:
+            candidate = line + character
+            if line and c.stringWidth(candidate, FONT, size) > width:
+                lines.append(line)
+                line = character
+            else:
+                line = candidate
+        if line:
+            lines.append(line)
+        leading = size + 1.1
+        center_y = top_y - height / 2
+        first_baseline = center_y + (len(lines) - 1) * leading / 2 - size * 0.34
+        c.setFillColor(color)
+        c.setFont(FONT, size)
+        for index, line in enumerate(lines):
+            c.drawCentredString(center_x, first_baseline - index * leading, line)
 
     def _callout(self, c: Canvas, x: float, y: float, width: float, height: float, lines: list[tuple[str, Color, str]]) -> None:
         c.setFillColor(LIGHT_GREY)
