@@ -598,12 +598,18 @@ class PdfReportBuilder:
         axis.grid(color="#C9DCE7", linewidth=0.7, alpha=0.9)
         axis.spines["polar"].set_color("#9FC1D2")
         closed_angles = angles + angles[:1]
-        axis.plot(closed_angles, class_values + class_values[:1], color="#ED8A94", linewidth=1.35, linestyle="--", marker="o", markersize=2.5, label="班级均分")
-        axis.fill(closed_angles, class_values + class_values[:1], color="#F9CCD0", alpha=0.24)
+        class_line = "#E8787F"
+        class_fill = "#F8C8CB"
+        # The template distinguishes the two assessments at a glance:
+        # blue/red for entry assessment and green/red for consolidation.
+        personal_line = "#22A84A" if consolidation else "#1681B5"
+        personal_fill = "#9FDEAE" if consolidation else "#59B5D8"
+        axis.plot(closed_angles, class_values + class_values[:1], color=class_line, linewidth=1.35, linestyle="--", marker="o", markersize=2.5, label="班级均分")
+        axis.fill(closed_angles, class_values + class_values[:1], color=class_fill, alpha=0.24)
         personal_label = "个人" if not missing_data else "个人（缺失项按班均参考）"
-        axis.plot(closed_angles, personal + personal[:1], color="#1681B5", linewidth=2.0, marker="o", markersize=3, label=personal_label)
-        axis.fill(closed_angles, personal + personal[:1], color="#59B5D8", alpha=0.22)
-        axis.set_title(title, fontsize=8.5, fontweight="bold", color="#215A77", pad=15)
+        axis.plot(closed_angles, personal + personal[:1], color=personal_line, linewidth=2.0, marker="o", markersize=3, label=personal_label)
+        axis.fill(closed_angles, personal + personal[:1], color=personal_fill, alpha=0.22)
+        axis.set_title(title, fontsize=8.5, fontweight="bold", color="#111111", pad=15)
         axis.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), fontsize=5.4, frameon=False, ncol=1)
 
     @staticmethod
@@ -618,7 +624,7 @@ class PdfReportBuilder:
         axis.set_xlim(0.25, len(xs) + 0.75)
         axis.set_xticks(xs)
         axis.set_yticks([0, 50, 100])
-        axis.set_title(title, fontsize=8.5, fontweight="bold", color="#215A77", pad=8)
+        axis.set_title(title, fontsize=8.5, fontweight="bold", color="#111111", pad=8)
         axis.set_xlabel("讲次", fontsize=6.5, color="#607382")
         axis.set_ylabel("分数", fontsize=6.5, color="#607382")
         axis.tick_params(labelsize=5.8, colors="#607382", length=0)
