@@ -248,12 +248,14 @@ class PdfReportBuilder:
         c.setFillColor(MUTED)
         # Match the template's two-line reading guide: explain both the
         # block-level radar comparison and the lesson-level bar comparison.
-        self._emoji(c, "📊", 48, 716, 14)
+        # Bring the reading guide closer to the title divider so it reads as
+        # part of this chart section rather than floating above the charts.
+        self._emoji(c, "📊", 48, 734, 14)
         chart_caption = (
             f"本图组展示 {a.student.name} 的个人成绩与 {len(a.student.classmates_consolidation)} 人班级平均的双维度对比。"
             "上方雷达图呈现入班测与课堂巩固的板块差异；下方柱状图逐讲比较个人与班级均分，用于定位持续优势与需复盘讲次。"
         )
-        self._wrapped(c, chart_caption, 67, 712, 478, 8.5, 12, MUTED, max_lines=2)
+        self._wrapped(c, chart_caption, 67, 730, 478, 8.5, 12, MUTED, max_lines=2)
         image = self._charts_image(a)
         c.drawImage(ImageReader(image), 49, 265, width=497, height=420, preserveAspectRatio=True, mask="auto")
         self._section(c, f"⑤ 入门测 vs 期末测评（5 维度对比 · {len(a.student.classmates_final)} 人班级）", 238)
