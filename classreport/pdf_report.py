@@ -208,7 +208,9 @@ class PdfReportBuilder:
         for item in a.categories:
             lesson_text = " / ".join(f"第{x.lesson}讲" for x in item.lessons)
             category_rows.append([item.category, fmt(item.score, 1), lesson_text, "强" if item.score is not None and item.score >= 85 else "待加强"])
-        y = self._table(c, 48, y, [83, 73, 301, 71], ["板块", "平均分", "包含讲次", "评价"], category_rows, font_size=8)
+        # Match the 499pt title rule above: never let the category table
+        # exceed the printable content area.
+        y = self._table(c, 48, y, [70, 62, 286, 81], ["板块", "平均分", "包含讲次", "评价"], category_rows, font_size=8)
         y -= 10
         course = a.student.course[:14]
         topic_rows = [
@@ -238,7 +240,9 @@ class PdfReportBuilder:
             ["班级中位分（期末）", "—", fmt(a.final_class_median, 1), "班级中位值"],
             ["高于均分次数", f"{a.below_average_count}/14", "—", "入班测对比"],
         ]
-        y = self._table(c, 48, 211, [137, 130, 130, 152], ["维度", "入门测（14讲平均）", "期末测评（单次）", "差异/说明"], final_rows, font_size=8.2)
+        # These four columns total 499pt, exactly aligning to the section
+        # divider from x=48 to the right page margin.
+        y = self._table(c, 48, 211, [125, 122, 122, 130], ["维度", "入门测（14讲平均）", "期末测评（单次）", "差异/说明"], final_rows, font_size=8.2)
         c.setFillColor(MUTED)
         c.setFont(FONT, 8.4)
         if a.student.classmates_final:
@@ -275,7 +279,7 @@ class PdfReportBuilder:
             f"待加强 · {len(a.low_lessons)} 个弱项讲次", weak_items, ORANGE,
         )
         notes = self._diagnostic_lines(a)
-        self._multiline_box(c, 48, 92, 499, 308, notes)
+        self._multiline_box(c, 48, 180, 499, 220, notes)
         c.showPage()
 
     def _summary_page(self, c: Canvas, a: ReportAnalysis) -> None:
@@ -474,13 +478,15 @@ class PdfReportBuilder:
         c.setFillColor(DEEP_BLUE)
         c.setFont(FONT_BOLD, 10.5)
         c.drawString(x + 14, y + height - 22, "五维诊断结论")
-        cursor = y + height - 52
-        line_gap = max(34, (height - 76) / max(len(lines), 1))
+        cursor = y + height - 48
         for line in lines:
             c.setFillColor(TEXT)
             c.setFont(FONT, 9.4)
-            self._wrapped(c, line, x + 12, cursor, width - 24, 9.4, 18, TEXT, max_lines=2)
-            cursor -= line_gap
+            # Advance according to the real number of wrapped lines instead
+            # of distributing five entries across the full panel height.
+            # This keeps consecutive recommendations visually connected.
+            used_lines = self._wrapped(c, line, x + 12, cursor, width - 24, 9.4, 18, TEXT, max_lines=2)
+            cursor -= used_lines * 18 + 12
 
     def _watermark(self, c: Canvas, a: ReportAnalysis, center_y: float = PAGE_H / 2) -> None:
         c.saveState()
