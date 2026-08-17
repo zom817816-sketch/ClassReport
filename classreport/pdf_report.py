@@ -352,13 +352,17 @@ class PdfReportBuilder:
         c.setFont(FONT, 9.4)
         for index, method in enumerate(methods, 1):
             c.drawString(96, advice_y - 42 - 22 * (index - 1), f"{index}. {method}")
+        # Keep the footer attached to the final review-method line.  A fixed
+        # position left a conspicuous blank area whenever there were fewer
+        # weak lessons to list above.
+        footer_line_y = advice_y - 106
         c.setStrokeColor(HexColor("#DDDDDD"))
-        c.line(70, 336, 546, 336)
+        c.line(70, footer_line_y, 546, footer_line_y)
         c.setFillColor(MUTED)
         c.setFont(FONT, 8.5)
-        c.drawCentredString(PAGE_W / 2, 318, f"本报告生成于 {self.settings.report_date.isoformat()}")
-        c.drawCentredString(PAGE_W / 2, 302, f"{a.student.course_label} · {a.student.name} · {a.student.term} · {a.student.class_name} · 指导老师：{self.settings.teacher}")
-        c.drawCentredString(PAGE_W / 2, 286, "本报告可能存在漏填或错填的情况，若有问题敬请谅解。")
+        c.drawCentredString(PAGE_W / 2, footer_line_y - 18, f"本报告生成于 {self.settings.report_date.isoformat()}")
+        c.drawCentredString(PAGE_W / 2, footer_line_y - 34, f"{a.student.course_label} · {a.student.name} · {a.student.term} · {a.student.class_name} · 指导老师：{self.settings.teacher}")
+        c.drawCentredString(PAGE_W / 2, footer_line_y - 50, "本报告可能存在漏填或错填的情况，若有问题敬请谅解。")
         c.showPage()
 
     def _page_base(self, c: Canvas, a: ReportAnalysis, title: str) -> None:
