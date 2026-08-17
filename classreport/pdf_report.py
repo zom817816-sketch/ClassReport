@@ -48,32 +48,36 @@ def bundled_asset(*parts: str) -> Path:
     return root.joinpath(*parts)
 
 
-def register_fonts() -> tuple[str, str]:
+def register_fonts() -> tuple[str, str, str]:
     """Embed the same Noto Sans SC family used by the supplied templates."""
     if "ReportChinese" not in pdfmetrics.getRegisteredFontNames():
         regular = bundled_asset("assets", "fonts", "NotoSansSC-Regular.ttf")
         bold = bundled_asset("assets", "fonts", "NotoSansSC-Bold.ttf")
-        if regular.exists() and bold.exists():
+        heavy = bundled_asset("assets", "fonts", "NotoSansSC-ExtraBold.ttf")
+        if regular.exists() and bold.exists() and heavy.exists():
             pdfmetrics.registerFont(TTFont("ReportChinese", str(regular)))
             pdfmetrics.registerFont(TTFont("ReportChineseBold", str(bold)))
+            pdfmetrics.registerFont(TTFont("ReportChineseHeavy", str(heavy)))
         elif Path(r"C:\Windows\Fonts\NotoSansSC-VF.ttf").exists():
             # Development fallback. Released packages always contain static
             # 400/700 instances above, so teachers do not need this font.
             pdfmetrics.registerFont(TTFont("ReportChinese", r"C:\Windows\Fonts\NotoSansSC-VF.ttf"))
             pdfmetrics.registerFont(TTFont("ReportChineseBold", r"C:\Windows\Fonts\NotoSansSC-VF.ttf"))
+            pdfmetrics.registerFont(TTFont("ReportChineseHeavy", r"C:\Windows\Fonts\NotoSansSC-VF.ttf"))
         elif Path(r"C:\Windows\Fonts\simhei.ttf").exists():
             # SimHei is intentionally used as the visual-bold fallback.
             pdfmetrics.registerFont(TTFont("ReportChinese", r"C:\Windows\Fonts\simhei.ttf"))
             pdfmetrics.registerFont(TTFont("ReportChineseBold", r"C:\Windows\Fonts\simhei.ttf"))
+            pdfmetrics.registerFont(TTFont("ReportChineseHeavy", r"C:\Windows\Fonts\simhei.ttf"))
         else:  # ReportLab's built-in CID font is a portable fallback.
             from reportlab.pdfbase import cidfonts
 
             pdfmetrics.registerFont(cidfonts.UnicodeCIDFont("STSong-Light"))
-            return "STSong-Light", "STSong-Light"
-    return "ReportChinese", "ReportChineseBold"
+            return "STSong-Light", "STSong-Light", "STSong-Light"
+    return "ReportChinese", "ReportChineseBold", "ReportChineseHeavy"
 
 
-FONT, FONT_BOLD = register_fonts()
+FONT, FONT_BOLD, FONT_HEAVY = register_fonts()
 
 
 def safe_filename(text: str) -> str:
@@ -151,7 +155,7 @@ class PdfReportBuilder:
         c.setLineWidth(1.6)
         c.line(48, 595, PAGE_W - 48, 595)
         c.setFillColor(TITLE)
-        c.setFont(FONT_BOLD, 27)
+        c.setFont(FONT_HEAVY, 27)
         c.drawCentredString(PAGE_W / 2, 608, "2026 夏季班学情报告")
         c.setFillColor(TEXT)
         c.setFont(FONT, 14)
@@ -240,10 +244,14 @@ class PdfReportBuilder:
     def _charts_page(self, c: Canvas, a: ReportAnalysis) -> None:
         self._page_base(c, a, "④ ◆ 板块雷达 + 各讲分数趋势（入班测 vs 课堂巩固 · 100 分制）")
         c.setFillColor(MUTED)
-        c.setFont(FONT, 8.5)
-        # Align the chart icon with the visual centre of the 8.5pt description text.
+        # Match the template's two-line reading guide: explain both the
+        # block-level radar comparison and the lesson-level bar comparison.
         self._emoji(c, "📊", 48, 716, 14)
-        c.drawString(67, 712, f"本图组展示 {a.student.name} 的个人成绩与 {len(a.student.classmates_consolidation)} 人班级平均的双维度对比。")
+        chart_caption = (
+            f"本图组展示 {a.student.name} 的个人成绩与 {len(a.student.classmates_consolidation)} 人班级平均的双维度对比。"
+            "上方雷达图呈现入班测与课堂巩固的板块差异；下方柱状图逐讲比较个人与班级均分，用于定位持续优势与需复盘讲次。"
+        )
+        self._wrapped(c, chart_caption, 67, 712, 478, 8.5, 12, MUTED, max_lines=2)
         image = self._charts_image(a)
         c.drawImage(ImageReader(image), 49, 265, width=497, height=420, preserveAspectRatio=True, mask="auto")
         self._section(c, f"⑤ ▲ 入门测 vs 期末测评（5 维度对比 · {len(a.student.classmates_final)} 人班级）", 238)
@@ -286,31 +294,31 @@ class PdfReportBuilder:
         if not weak_items:
             weak_items = ["当前各讲分数稳定，建议保持综合训练。"]
         self._diagnostic_card(
-            c, 48, 425, 238, 160,
+            c, 48, 440, 238, 145,
             f"强项 · {len(strengths)} 个强板块", strength_items, GREEN,
         )
         self._diagnostic_card(
-            c, 309, 425, 238, 160,
+            c, 309, 440, 238, 145,
             f"待加强 · {len(a.low_lessons)} 个弱项讲次", weak_items, ORANGE,
         )
         notes = self._diagnostic_lines(a)
-        self._multiline_box(c, 48, 180, 499, 220, notes)
+        self._multiline_box(c, 48, 174, 499, 246, notes)
         c.showPage()
 
     def _summary_page(self, c: Canvas, a: ReportAnalysis) -> None:
         self._page_base(c, a, "⑨ ● 整体分析")
         c.setFillColor(HEADING)
-        c.setFont(FONT_BOLD, 13)
+        c.setFont(FONT_HEAVY, 13)
         c.drawString(70, 714, "整体评价")
         summary = self._summary_text(a)
-        self._wrapped(c, summary, 70, 674, 474, 10, 18, TEXT)
+        self._wrapped(c, summary, 70, 688, 474, 10, 18, TEXT)
         c.setFillColor(HexColor("#FFF8DF"))
         c.rect(70, 622, 476, 21, fill=1, stroke=0)
         c.setFillColor(MUTED)
         c.setFont(FONT, 8.7)
         c.drawString(80, 629, "评级算法：入班测与课堂巩固平均为基础；有期末测评时叠加班级百分位。")
         c.setFillColor(HEADING)
-        c.setFont(FONT_BOLD, 13)
+        c.setFont(FONT_HEAVY, 13)
         # These heading icons are centred against the visual, not baseline, height of the title text.
         self._emoji(c, "🚀", 70, 599, 15)
         c.drawString(91, 595, "暑假复习建议")
@@ -354,20 +362,20 @@ class PdfReportBuilder:
         c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
         self._watermark(c, a)
         c.setFillColor(HEADING)
-        c.setFont(FONT_BOLD, 15)
+        c.setFont(FONT_HEAVY, 16)
         c.drawString(48, 766, title)
         c.setStrokeColor(HEADING)
         c.setLineWidth(1.3)
         c.line(48, 753, PAGE_W - 48, 753)
         # Avoid collision with section titles that span most of the page width.
-        if c.stringWidth(title, FONT_BOLD, 15) < 390:
+        if c.stringWidth(title, FONT_HEAVY, 16) < 390:
             c.setFillColor(MUTED)
             c.setFont(FONT, 8)
             c.drawRightString(PAGE_W - 48, 766, f"{a.student.course_label} · {a.student.name} · {self.settings.teacher}")
 
     def _section(self, c: Canvas, title: str, y: float) -> None:
         c.setFillColor(HEADING)
-        c.setFont(FONT_BOLD, 14.5)
+        c.setFont(FONT_HEAVY, 15)
         c.drawString(48, y, title)
         c.setStrokeColor(HEADING)
         c.setLineWidth(1.2)
@@ -379,7 +387,7 @@ class PdfReportBuilder:
             c.setFillColor(color)
             c.roundRect(x, y - 76, width, 66, 5, fill=1, stroke=0)
             c.setFillColor(white)
-            c.setFont(FONT_BOLD, 14)
+            c.setFont(FONT_HEAVY, 14)
             c.drawCentredString(x + width / 2, y - 33, value)
             c.setFont(FONT, 7.4)
             self._center_wrapped(c, label, x + width / 2, y - 53, width - 8, 8.2, white)
@@ -397,7 +405,7 @@ class PdfReportBuilder:
         self, c: Canvas, x: float, y: float, widths: list[float], headers: list[str],
         rows: list[list[str]], font_size: float, highlight_row_labels: bool = False,
     ) -> float:
-        header_h, row_h = 21, 20
+        header_h, row_h = 19, 18
         total = sum(widths)
         c.setFillColor(BLUE)
         c.rect(x, y - header_h, total, header_h, fill=1, stroke=0)
@@ -405,7 +413,7 @@ class PdfReportBuilder:
         c.setFillColor(white)
         c.setFont(FONT_BOLD, font_size)
         for width, value in zip(widths, headers):
-            c.drawCentredString(cursor + width / 2, y - 14, value)
+            c.drawCentredString(cursor + width / 2, y - 13, value)
             cursor += width
         y -= header_h
         for index, row in enumerate(rows):
@@ -423,7 +431,7 @@ class PdfReportBuilder:
                 else:
                     c.setFillColor(GREEN if value == "强" or (value.replace('.', '', 1).isdigit() and value != "—") else TEXT)
                     c.setFont(FONT_BOLD if is_row_label else FONT, font_size)
-                self._center_ellipsize(c, value, cursor + width / 2, y - 14, width - 5, font_size)
+                self._center_ellipsize(c, value, cursor + width / 2, y - 12, width - 5, font_size)
                 cursor += width
             y -= row_h
         return y
@@ -431,7 +439,7 @@ class PdfReportBuilder:
     def _mini_matrix(self, c: Canvas, x: float, y: float, rows: list[list[str]]) -> None:
         # Fourteen lesson columns must share the same printable width as the
         # tables above; fixed 34.4pt cells previously ran beyond the margin.
-        label_width, row_h = 58, 21
+        label_width, row_h = 58, 19
         cell_width = (PAGE_W - 96 - label_width) / 14
         for row_index, row in enumerate(rows):
             current_y = y - row_index * row_h
@@ -442,12 +450,12 @@ class PdfReportBuilder:
                 c.rect(x, current_y - row_h, label_width, row_h, fill=1, stroke=0)
             c.setFillColor(white)
             c.setFont(FONT_BOLD, 7.3)
-            self._center_ellipsize(c, row[0], x + label_width / 2, current_y - 14, label_width - 4, 7.3)
+            self._center_ellipsize(c, row[0], x + label_width / 2, current_y - 13, label_width - 4, 7.3)
             c.setFont(FONT_BOLD if row_index == 0 else FONT, 7.1)
             for index, value in enumerate(row[1:]):
                 color = GREEN if row_index == 3 and value not in ("—", "") and float(value) >= 85 else (ORANGE if row_index == 3 and value not in ("—", "") else (white if row_index == 0 else TEXT))
                 c.setFillColor(color)
-                self._center_ellipsize(c, value, x + label_width + cell_width * index + cell_width / 2, current_y - 14, cell_width - 3, 7.1)
+                self._center_ellipsize(c, value, x + label_width + cell_width * index + cell_width / 2, current_y - 13, cell_width - 3, 7.1)
 
     def _callout(self, c: Canvas, x: float, y: float, width: float, height: float, lines: list[tuple[str, Color, str]]) -> None:
         c.setFillColor(LIGHT_GREY)
@@ -457,7 +465,7 @@ class PdfReportBuilder:
         for icon, color, text in lines:
             c.setFillColor(color)
             self._emoji(c, icon, x + 11, line_y + 3, 13)
-            self._wrapped(c, text, x + 30, line_y, width - 41, 9.5, 15, color, max_lines=2)
+            self._wrapped(c, text, x + 30, line_y, width - 41, 9.5, 15, color, max_lines=2, font_name=FONT_BOLD)
             line_y -= 32
 
     def _diagnostic_card(
@@ -473,10 +481,10 @@ class PdfReportBuilder:
         c.setFillColor(white)
         c.setFont(FONT_BOLD, 10.5)
         c.drawString(x + 12, y + height - 19, title)
-        cursor = y + height - 48
+        cursor = y + height - 46
         for item in items[:4]:
-            self._wrapped(c, f"• {item}", x + 12, cursor, width - 24, 8.7, 12, TEXT, max_lines=2)
-            cursor -= 24
+            self._wrapped(c, f"• {item}", x + 12, cursor, width - 24, 8.7, 12, TEXT, max_lines=2, font_name=FONT_BOLD)
+            cursor -= 19
 
     def _emoji(self, c: Canvas, icon: str, x: float, center_y: float, size: float) -> None:
         """Embed a color Emoji centred on the adjacent text baseline."""
@@ -516,7 +524,7 @@ class PdfReportBuilder:
             # of distributing five entries across the full panel height.
             # This keeps consecutive recommendations visually connected.
             used_lines = self._wrapped(c, line, x + 12, cursor, width - 24, 9.4, 18, TEXT, max_lines=2)
-            cursor -= used_lines * 18 + 12
+            cursor -= used_lines * 17 + 9
 
     def _watermark(self, c: Canvas, a: ReportAnalysis, center_y: float = PAGE_H / 2) -> None:
         c.saveState()
@@ -742,14 +750,17 @@ class PdfReportBuilder:
             value = value[:-1] + "…"
         c.drawCentredString(x, y, value)
 
-    def _wrapped(self, c: Canvas, text: str, x: float, y: float, width: float, size: float, leading: float, color: Color, max_lines: int | None = None) -> int:
+    def _wrapped(
+        self, c: Canvas, text: str, x: float, y: float, width: float, size: float,
+        leading: float, color: Color, max_lines: int | None = None, font_name: str = FONT,
+    ) -> int:
         c.setFillColor(color)
-        c.setFont(FONT, size)
+        c.setFont(font_name, size)
         lines: list[str] = []
         line = ""
         for character in text:
             candidate = line + character
-            if c.stringWidth(candidate, FONT, size) > width and line:
+            if c.stringWidth(candidate, font_name, size) > width and line:
                 lines.append(line)
                 line = character
             else:
