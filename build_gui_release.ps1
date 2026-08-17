@@ -16,7 +16,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $projectRoot '.env'))) {
 }
 
 & $python -m pip install -r (Join-Path $projectRoot 'requirements-build.txt')
-& $python -m PyInstaller --noconfirm --clean --noconsole --onefile --name $appName --distpath $distRoot --workpath (Join-Path $stagingRoot 'work') --specpath $stagingRoot --add-data $embeddedConfig --collect-data matplotlib --collect-data reportlab (Join-Path $projectRoot 'teacher_gui_launcher.py')
+& $python -m PyInstaller --noconfirm --clean --noconsole --onefile --name $appName --distpath $distRoot --workpath (Join-Path $stagingRoot 'work') --specpath $stagingRoot --add-data $embeddedConfig --add-data "$(Join-Path $projectRoot 'assets');assets" --collect-data matplotlib --collect-data reportlab (Join-Path $projectRoot 'teacher_gui_launcher.py')
 
 New-Item -ItemType Directory -Force -Path $releaseRoot | Out-Null
 Copy-Item (Join-Path $distRoot "$appName.exe") $releaseRoot

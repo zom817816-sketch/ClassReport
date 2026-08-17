@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import math
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,14 +42,25 @@ TITLE = HexColor("#075A8D")
 EMOJI_FONT = Path(r"C:\Windows\Fonts\seguiemj.ttf")
 
 
+def bundled_asset(*parts: str) -> Path:
+    """Resolve project assets both in source runs and PyInstaller builds."""
+    root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+    return root.joinpath(*parts)
+
+
 def register_fonts() -> tuple[str, str]:
-    """Use separate regular/bold Chinese fonts so section hierarchy is visible."""
+    """Embed the same Noto Sans SC family used by the supplied templates."""
     if "ReportChinese" not in pdfmetrics.getRegisteredFontNames():
-        regular = Path(r"C:\Windows\Fonts\msyh.ttc")
-        bold = Path(r"C:\Windows\Fonts\msyhbd.ttc")
+        regular = bundled_asset("assets", "fonts", "NotoSansSC-Regular.ttf")
+        bold = bundled_asset("assets", "fonts", "NotoSansSC-Bold.ttf")
         if regular.exists() and bold.exists():
             pdfmetrics.registerFont(TTFont("ReportChinese", str(regular)))
             pdfmetrics.registerFont(TTFont("ReportChineseBold", str(bold)))
+        elif Path(r"C:\Windows\Fonts\NotoSansSC-VF.ttf").exists():
+            # Development fallback. Released packages always contain static
+            # 400/700 instances above, so teachers do not need this font.
+            pdfmetrics.registerFont(TTFont("ReportChinese", r"C:\Windows\Fonts\NotoSansSC-VF.ttf"))
+            pdfmetrics.registerFont(TTFont("ReportChineseBold", r"C:\Windows\Fonts\NotoSansSC-VF.ttf"))
         elif Path(r"C:\Windows\Fonts\simhei.ttf").exists():
             # SimHei is intentionally used as the visual-bold fallback.
             pdfmetrics.registerFont(TTFont("ReportChinese", r"C:\Windows\Fonts\simhei.ttf"))
@@ -79,10 +91,13 @@ def category_labels(items: list[CategoryScore]) -> list[str]:
 
 
 def set_matplotlib_font() -> None:
-    font_path = Path(r"C:\Windows\Fonts\simhei.ttf")
+    # Keep chart labels in the same family as the PDF text and template.
+    font_path = bundled_asset("assets", "fonts", "NotoSansSC-Regular.ttf")
+    if not font_path.exists():
+        font_path = Path(r"C:\Windows\Fonts\NotoSansSC-VF.ttf")
     if font_path.exists():
         font_manager.fontManager.addfont(str(font_path))
-        plt.rcParams["font.family"] = "SimHei"
+        plt.rcParams["font.family"] = "Noto Sans SC"
     plt.rcParams["axes.unicode_minus"] = False
 
 
@@ -191,7 +206,7 @@ class PdfReportBuilder:
             ["分数"] + student_scores,
             [f"班级 {len(a.student.classmates_consolidation)} 人均"] + class_scores,
             ["正确率"] + accuracy,
-        ], font_size=7.2)
+        ], font_size=7.2, highlight_row_labels=True)
         difference = None
         cls_avg = average_or_none(a.consolidation_class_average)
         if a.consolidation_average is not None and cls_avg is not None:
@@ -210,7 +225,7 @@ class PdfReportBuilder:
             category_rows.append([item.category, fmt(item.score, 1), lesson_text, "强" if item.score is not None and item.score >= 85 else "待加强"])
         # Match the 499pt title rule above: never let the category table
         # exceed the printable content area.
-        y = self._table(c, 48, y, [70, 62, 286, 81], ["板块", "平均分", "包含讲次", "评价"], category_rows, font_size=8)
+        y = self._table(c, 48, y, [70, 62, 286, 81], ["板块", "平均分", "包含讲次", "评价"], category_rows, font_size=8, highlight_row_labels=True)
         y -= 10
         course = a.student.course[:14]
         topic_rows = [
@@ -378,7 +393,10 @@ class PdfReportBuilder:
         c.setFont(FONT, 8.4)
         c.drawString(71, y - 11, text)
 
-    def _table(self, c: Canvas, x: float, y: float, widths: list[float], headers: list[str], rows: list[list[str]], font_size: float) -> float:
+    def _table(
+        self, c: Canvas, x: float, y: float, widths: list[float], headers: list[str],
+        rows: list[list[str]], font_size: float, highlight_row_labels: bool = False,
+    ) -> float:
         header_h, row_h = 21, 20
         total = sum(widths)
         c.setFillColor(BLUE)
@@ -393,10 +411,18 @@ class PdfReportBuilder:
         for index, row in enumerate(rows):
             c.setFillColor(white if index % 2 == 0 else LIGHT_GREY)
             c.rect(x, y - row_h, total, row_h, fill=1, stroke=0)
+            if highlight_row_labels:
+                c.setFillColor(BLUE)
+                c.rect(x, y - row_h, widths[0], row_h, fill=1, stroke=0)
             cursor = x
-            for width, value in zip(widths, row):
-                c.setFillColor(GREEN if value == "强" or (value.replace('.', '', 1).isdigit() and value != "—") else TEXT)
-                c.setFont(FONT, font_size)
+            for column_index, (width, value) in enumerate(zip(widths, row)):
+                is_row_label = column_index == 0
+                if is_row_label and highlight_row_labels:
+                    c.setFillColor(white)
+                    c.setFont(FONT_BOLD, font_size)
+                else:
+                    c.setFillColor(GREEN if value == "强" or (value.replace('.', '', 1).isdigit() and value != "—") else TEXT)
+                    c.setFont(FONT_BOLD if is_row_label else FONT, font_size)
                 self._center_ellipsize(c, value, cursor + width / 2, y - 14, width - 5, font_size)
                 cursor += width
             y -= row_h
@@ -411,9 +437,13 @@ class PdfReportBuilder:
             current_y = y - row_index * row_h
             c.setFillColor(BLUE if row_index == 0 else (LIGHT_BLUE if row_index % 2 else white))
             c.rect(x, current_y - row_h, label_width + cell_width * 14, row_h, fill=1, stroke=0)
-            c.setFillColor(white if row_index == 0 else TEXT)
-            c.setFont(FONT_BOLD if row_index == 0 else FONT, 7.3)
+            if row_index > 0:
+                c.setFillColor(BLUE)
+                c.rect(x, current_y - row_h, label_width, row_h, fill=1, stroke=0)
+            c.setFillColor(white)
+            c.setFont(FONT_BOLD, 7.3)
             self._center_ellipsize(c, row[0], x + label_width / 2, current_y - 14, label_width - 4, 7.3)
+            c.setFont(FONT_BOLD if row_index == 0 else FONT, 7.1)
             for index, value in enumerate(row[1:]):
                 color = GREEN if row_index == 3 and value not in ("—", "") and float(value) >= 85 else (ORANGE if row_index == 3 and value not in ("—", "") else (white if row_index == 0 else TEXT))
                 c.setFillColor(color)
