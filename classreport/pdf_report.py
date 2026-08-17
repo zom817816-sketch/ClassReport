@@ -51,7 +51,9 @@ def bundled_asset(*parts: str) -> Path:
 def register_fonts() -> tuple[str, str, str]:
     """Embed the same Noto Sans SC family used by the supplied templates."""
     if "ReportChinese" not in pdfmetrics.getRegisteredFontNames():
-        regular = bundled_asset("assets", "fonts", "NotoSansSC-Regular.ttf")
+        # Medium (500) keeps ordinary report text as substantial as the
+        # supplied template while preserving a clear distinction from 700/800.
+        regular = bundled_asset("assets", "fonts", "NotoSansSC-Medium.ttf")
         bold = bundled_asset("assets", "fonts", "NotoSansSC-Bold.ttf")
         heavy = bundled_asset("assets", "fonts", "NotoSansSC-ExtraBold.ttf")
         if regular.exists() and bold.exists() and heavy.exists():
@@ -96,7 +98,7 @@ def category_labels(items: list[CategoryScore]) -> list[str]:
 
 def set_matplotlib_font() -> None:
     # Keep chart labels in the same family as the PDF text and template.
-    font_path = bundled_asset("assets", "fonts", "NotoSansSC-Regular.ttf")
+    font_path = bundled_asset("assets", "fonts", "NotoSansSC-Medium.ttf")
     if not font_path.exists():
         font_path = Path(r"C:\Windows\Fonts\NotoSansSC-VF.ttf")
     if font_path.exists():
@@ -302,7 +304,9 @@ class PdfReportBuilder:
             f"待加强 · {len(a.low_lessons)} 个弱项讲次", weak_items, ORANGE,
         )
         notes = self._diagnostic_lines(a)
-        self._multiline_box(c, 48, 174, 499, 246, notes)
+        # Keep the top aligned with the paired cards while removing the large
+        # unused lower area beneath the five diagnostic statements.
+        self._multiline_box(c, 48, 225, 499, 195, notes)
         c.showPage()
 
     def _summary_page(self, c: Canvas, a: ReportAnalysis) -> None:
@@ -523,7 +527,9 @@ class PdfReportBuilder:
             # Advance according to the real number of wrapped lines instead
             # of distributing five entries across the full panel height.
             # This keeps consecutive recommendations visually connected.
-            used_lines = self._wrapped(c, line, x + 12, cursor, width - 24, 9.4, 18, TEXT, max_lines=2)
+            used_lines = self._wrapped_with_bold_prefix(
+                c, line, x + 12, cursor, width - 24, 9.4, 17, TEXT,
+            )
             cursor -= used_lines * 17 + 9
 
     def _watermark(self, c: Canvas, a: ReportAnalysis, center_y: float = PAGE_H / 2) -> None:
@@ -771,6 +777,55 @@ class PdfReportBuilder:
             lines = lines[:max_lines]
         for index, line in enumerate(lines):
             c.drawString(x, y - index * leading, line)
+        return len(lines)
+
+    def _wrapped_with_bold_prefix(
+        self, c: Canvas, text: str, x: float, y: float, width: float,
+        size: float, leading: float, color: Color,
+    ) -> int:
+        """Wrap a diagnostic sentence while emphasizing its numbered label."""
+        match = re.match(r"^(\d+\.\s*[^：:]+[：:])", text)
+        if not match:
+            return self._wrapped(c, text, x, y, width, size, leading, color, max_lines=2)
+        prefix = match.group(1)
+        glyphs = [(char, FONT_BOLD if index < len(prefix) else FONT) for index, char in enumerate(text)]
+        lines: list[list[tuple[str, str]]] = []
+        current: list[tuple[str, str]] = []
+        current_width = 0.0
+        for char, font_name in glyphs:
+            char_width = c.stringWidth(char, font_name, size)
+            if current and current_width + char_width > width:
+                # Avoid a lone Chinese closing punctuation mark on the next
+                # line. A tiny optical overhang is preferable to an orphan.
+                if char in "，。；：、）】》":
+                    current.append((char, font_name))
+                    current_width += char_width
+                    continue
+                lines.append(current)
+                current = []
+                current_width = 0.0
+            current.append((char, font_name))
+            current_width += char_width
+        if current:
+            lines.append(current)
+        lines = lines[:2]
+        for line_index, line in enumerate(lines):
+            cursor_x = x
+            run_font = line[0][1]
+            run_text = ""
+            for char, font_name in line:
+                if font_name != run_font:
+                    c.setFillColor(color)
+                    c.setFont(run_font, size)
+                    c.drawString(cursor_x, y - line_index * leading, run_text)
+                    cursor_x += c.stringWidth(run_text, run_font, size)
+                    run_font = font_name
+                    run_text = char
+                else:
+                    run_text += char
+            c.setFillColor(color)
+            c.setFont(run_font, size)
+            c.drawString(cursor_x, y - line_index * leading, run_text)
         return len(lines)
 
     def _center_wrapped(self, c: Canvas, text: str, x: float, y: float, width: float, size: float, color: Color) -> None:
