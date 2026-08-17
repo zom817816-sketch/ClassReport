@@ -35,15 +35,20 @@ class TeacherApp:
 
         default_token = self.config.get("FEISHU_APP_TOKEN") or parse_base_token(DEFAULT_BASE_URL)
         self.initial_access_token = self.config.get("USER_ACCESS_TOKEN", "")
+        self.initial_app_id = self.config.get("APP_ID", "")
+        self.initial_app_secret = self.config.get("APP_SECRET", "")
         self.initial_app_token = default_token
         self.access_token = tk.StringVar(value=self.initial_access_token)
+        self.app_id = tk.StringVar(value=self.initial_app_id)
+        self.app_secret = tk.StringVar(value=self.initial_app_secret)
         self.app_token = tk.StringVar(value=default_token)
+        self.auth_mode = tk.StringVar(value="用户令牌" if self.initial_access_token else "应用身份")
         self.teacher = tk.StringVar(value="毛远老师")
         self.report_date = tk.StringVar(value=date.today().isoformat())
 
         self.window.title("课情报告生成器")
-        self.window.geometry("700x560")
-        self.window.minsize(640, 500)
+        self.window.geometry("720x620")
+        self.window.minsize(660, 560)
         self._build()
         self._drain_messages()
         if self.config_error:
@@ -55,22 +60,29 @@ class TeacherApp:
         container = ttk.Frame(self.window, padding=18)
         container.pack(fill="both", expand=True)
         ttk.Label(container, text="课情报告生成器", font=("Microsoft YaHei UI", 18, "bold")).pack(anchor="w")
-        ttk.Label(container, text="内置默认凭据；令牌过期或切换多维表格时可在下方更新。", foreground="#666666").pack(anchor="w", pady=(3, 14))
+        ttk.Label(container, text="可选择用户令牌或应用身份；切换多维表格前建议先执行数据预检。", foreground="#666666").pack(anchor="w", pady=(3, 14))
 
         form = ttk.Frame(container)
         form.pack(fill="x")
-        self._field(form, 0, "飞书用户令牌", self.access_token, show="•")
-        self._field(form, 1, "多维表格 app_token", self.app_token)
-        self._field(form, 2, "指导老师", self.teacher)
-        self._field(form, 3, "报告日期", self.report_date)
-        ttk.Label(form, text="app_token 是 Base 链接中 /base/ 后的那段字符串。", foreground="#666666").grid(row=4, column=1, sticky="w", pady=(0, 12))
+        ttk.Label(form, text="认证方式", width=18).grid(row=0, column=0, sticky="w", pady=5)
+        auth_box = ttk.Combobox(form, textvariable=self.auth_mode, values=("用户令牌", "应用身份"), state="readonly")
+        auth_box.grid(row=0, column=1, sticky="ew", pady=5)
+        self._field(form, 1, "飞书用户令牌", self.access_token, show="•")
+        self._field(form, 2, "App ID", self.app_id)
+        self._field(form, 3, "App Secret", self.app_secret, show="•")
+        self._field(form, 4, "多维表格 app_token", self.app_token)
+        self._field(form, 5, "指导老师", self.teacher)
+        self._field(form, 6, "报告日期", self.report_date)
+        ttk.Label(form, text="app_token 是 Base 链接中 /base/ 后的那段字符串。", foreground="#666666").grid(row=7, column=1, sticky="w", pady=(0, 12))
 
         buttons = ttk.Frame(container)
         buttons.pack(fill="x", pady=(2, 10))
         self.test_button = ttk.Button(buttons, text="测试飞书连接", command=lambda: self._run(sync_only=True))
         self.test_button.pack(side="left")
-        self.generate_button = ttk.Button(buttons, text="下载并生成报告", command=lambda: self._run(sync_only=False))
-        self.generate_button.pack(side="left", padx=10)
+        self.preflight_button = ttk.Button(buttons, text="数据预检", command=lambda: self._run(preflight=True))
+        self.preflight_button.pack(side="left", padx=10)
+        self.generate_button = ttk.Button(buttons, text="下载并生成报告", command=self._run)
+        self.generate_button.pack(side="left")
         ttk.Button(buttons, text="打开输出目录", command=self._open_output).pack(side="left")
 
         ttk.Label(container, text="运行日志").pack(anchor="w")
@@ -92,43 +104,57 @@ class TeacherApp:
 
     def _save_overrides(self) -> bool:
         token = self.access_token.get().strip()
+        app_id = self.app_id.get().strip()
+        app_secret = self.app_secret.get().strip()
         app_token = self.app_token.get().strip()
-        if not token and not (self.config.get("APP_ID") and self.config.get("APP_SECRET")):
-            messagebox.showerror("缺少凭据", "请填写飞书用户令牌。")
+        use_user_token = self.auth_mode.get() == "用户令牌"
+        if use_user_token and not token:
+            messagebox.showerror("缺少凭据", "请选择用户令牌认证时，必须填写飞书用户令牌。")
+            return False
+        if not use_user_token and (not app_id or not app_secret):
+            messagebox.showerror("缺少凭据", "请选择应用身份认证时，必须填写 App ID 和 App Secret。")
             return False
         if not app_token.isalnum():
             messagebox.showerror("app_token 无效", "请填写多维表格链接中的 app_token。")
             return False
-        if token == self.initial_access_token and app_token == self.initial_app_token:
+        next_token = token if use_user_token else ""
+        next_values = (next_token, app_id, app_secret, app_token, self.auth_mode.get())
+        initial_values = (self.initial_access_token, self.initial_app_id, self.initial_app_secret, self.initial_app_token, "用户令牌" if self.initial_access_token else "应用身份")
+        if next_values == initial_values:
             return True
         override = self.root / "ClassReportGenerator.config.env"
         override.write_text(
-            f"USER_ACCESS_TOKEN={token}\nFEISHU_APP_TOKEN={app_token}\n",
+            f"USER_ACCESS_TOKEN={next_token}\nAPP_ID={app_id}\nAPP_SECRET={app_secret}\nFEISHU_APP_TOKEN={app_token}\n",
             encoding="utf-8",
         )
-        self.config["USER_ACCESS_TOKEN"] = token
-        self.initial_access_token = token
+        self.config.update({"USER_ACCESS_TOKEN": next_token, "APP_ID": app_id, "APP_SECRET": app_secret})
+        self.initial_access_token = next_token
+        self.initial_app_id = app_id
+        self.initial_app_secret = app_secret
         self.initial_app_token = app_token
         self._append("已保存本机配置更新。\n")
         return True
 
-    def _command(self, sync_only: bool) -> list[str]:
+    def _command(self, sync_only: bool = False, preflight: bool = False) -> list[str]:
         base_url = f"https://xinzhoujy.feishu.cn/base/{self.app_token.get().strip()}"
         cli_args = ["--root", str(self.root), "--sync-feishu", "--feishu-url", base_url]
         if sync_only:
             cli_args.append("--sync-only")
+        elif preflight:
+            cli_args.append("--validate-only")
         else:
             cli_args.extend(["--date", self.report_date.get().strip(), "--teacher", self.teacher.get().strip()])
         return cli_args
 
-    def _run(self, sync_only: bool) -> None:
+    def _run(self, sync_only: bool = False, preflight: bool = False) -> None:
         if self.running or not self._save_overrides():
             return
         self.running = True
         self.test_button.configure(state="disabled")
+        self.preflight_button.configure(state="disabled")
         self.generate_button.configure(state="disabled")
         self._append("\n开始运行，请勿关闭窗口……\n")
-        command = self._command(sync_only)
+        command = self._command(sync_only, preflight)
         threading.Thread(target=self._worker, args=(command,), daemon=True).start()
 
     def _worker(self, command: list[str]) -> None:
@@ -164,6 +190,7 @@ class TeacherApp:
                 if message is None:
                     self.running = False
                     self.test_button.configure(state="normal")
+                    self.preflight_button.configure(state="normal")
                     self.generate_button.configure(state="normal")
                 else:
                     self._append(message)

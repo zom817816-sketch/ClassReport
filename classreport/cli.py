@@ -5,7 +5,7 @@ import csv
 import shutil
 import sys
 import zipfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from .analysis import build_analysis
@@ -24,6 +24,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--no-encrypt", action="store_true", help="仅调试时使用：不加密 PDF")
     parser.add_argument("--sync-feishu", action="store_true", help="先从飞书多维表格下载最新数据，再生成报告")
     parser.add_argument("--sync-only", action="store_true", help="仅下载飞书多维表格，不生成报告（需配合 --sync-feishu）")
+    parser.add_argument("--validate-only", action="store_true", help="下载并预检数据，不生成报告（需配合 --sync-feishu）")
     parser.add_argument("--feishu-url", default=DEFAULT_BASE_URL, help="飞书多维表格 URL")
     parser.add_argument("--data-dir", type=Path, help="指定报告输入 CSV 目录；默认使用 data/")
     return parser.parse_args(argv)
@@ -35,11 +36,16 @@ def main(argv: list[str] | None = None) -> None:
     source_data_dir = args.data_dir.resolve() if args.data_dir else root / "data"
     if args.sync_only and not args.sync_feishu:
         raise SystemExit("--sync-only 需要与 --sync-feishu 一起使用。")
+    if args.sync_only and args.validate_only:
+        raise SystemExit("--sync-only 与 --validate-only 不能同时使用。")
     if args.sync_feishu:
         try:
             result = sync_from_url(root, args.feishu_url)
         except (FeishuApiError, FileNotFoundError, ValueError) as error:
-            raise SystemExit(f"飞书同步失败：{error}") from error
+            detail = str(error)
+            if "99991672" in detail:
+                detail += "\n应用身份请在飞书开放平台开通并发布 bitable:app:readonly（或 bitable:app / base:table:read）权限后重试。"
+            raise SystemExit(f"飞书同步失败：{detail}") from error
         source_data_dir = result.report_data_dir
         matched = sum(table.report_path is not None for table in result.tables)
         print(f"飞书同步完成：下载 {len(result.tables)} 张数据表，其中 {matched} 张匹配课情报告数据结构。")
@@ -47,13 +53,20 @@ def main(argv: list[str] | None = None) -> None:
         print(f"报告数据：{result.report_data_dir}")
         if args.sync_only:
             return
+        if matched < len(DataRepository.FILES):
+            raise SystemExit(f"数据预检失败：仅识别到 {matched}/{len(DataRepository.FILES)} 张报告数据表，请检查表名和字段。")
     settings = Settings(root=root, report_date=args.date, teacher=args.teacher, source_data_dir=source_data_dir)
-    if settings.output_dir.exists() and not args.keep_output:
-        shutil.rmtree(settings.output_dir)
+    try:
+        loaded = DataRepository(settings.data_dir).load()
+    except (FileNotFoundError, KeyError, ValueError) as error:
+        raise SystemExit(f"数据预检失败：{error}") from error
+    preflight_report_data(loaded)
+    if args.validate_only:
+        return
+    archive_previous_output(settings.output_dir)
     for directory in (settings.reports_dir, settings.packages_dir, settings.manifests_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
-    loaded = DataRepository(settings.data_dir).load()
     builder = PdfReportBuilder(settings)
     manifest: list[dict[str, str]] = []
     class_files: dict[str, list[Path]] = {}
@@ -97,6 +110,34 @@ def main(argv: list[str] | None = None) -> None:
     write_csv(settings.manifests_dir / "data_quality_report.csv", loaded.issues)
     print(f"\n完成：生成 {len(manifest)} 份个人报告、{len(package_rows)} 个班级压缩包。")
     print(f"输出目录：{settings.output_dir}")
+
+
+def preflight_report_data(loaded) -> None:
+    if not loaded.students:
+        raise SystemExit("数据预检失败：未识别到可生成报告的学员记录。")
+    print(f"数据预检通过：可生成 {len(loaded.students)} 份报告。")
+    if not loaded.issues:
+        print("数据质量：未发现需要人工核对的问题。")
+        return
+    issue_types: dict[str, int] = {}
+    for issue in loaded.issues:
+        issue_type = issue.get("类型", "数据异常")
+        issue_types[issue_type] = issue_types.get(issue_type, 0) + 1
+    summary = "；".join(f"{kind} {count} 条" for kind, count in issue_types.items())
+    print(f"数据质量提醒：发现 {len(loaded.issues)} 条需人工核对的问题（{summary}）。报告仍可生成，详情见 data_quality_report.csv。")
+
+
+def archive_previous_output(output_dir: Path) -> None:
+    active_names = ("reports", "packages", "manifests")
+    active_paths = [output_dir / name for name in active_names if (output_dir / name).exists()]
+    if not active_paths:
+        return
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archive_dir = output_dir / "history" / timestamp
+    archive_dir.mkdir(parents=True, exist_ok=False)
+    for source in active_paths:
+        shutil.move(str(source), str(archive_dir / source.name))
+    print(f"已归档上一次输出：{archive_dir}")
 
 
 def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
