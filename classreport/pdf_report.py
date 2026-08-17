@@ -277,7 +277,7 @@ class PdfReportBuilder:
         c.showPage()
 
     def _diagnosis_page(self, c: Canvas, a: ReportAnalysis) -> None:
-        self._page_base(c, a, "⑦ 核心判断 & 建议")
+        self._page_base(c, a, "⑥ 核心判断 & 建议")
         strengths = [item for item in a.categories if item.score is not None and item.score >= 85]
         strength_text = self._core_strength_text(a)
         low_text = self._core_weakness_text(a)
@@ -286,7 +286,7 @@ class PdfReportBuilder:
             ("⚠️", RED, f"不足：{low_text}"),
             ("🚀", DEEP_BLUE, f"建议：{self._recommendation(a)}"),
         ])
-        self._section(c, "⑧ 诊断分析（多维度）", 613)
+        self._section(c, "⑦ 诊断分析（多维度）", 613)
         full_count = sum(x == 100 for x in a.student.intro_scores if x is not None)
         strength_items = [f"{item.category} {item.score:.1f} 分（板块均）" for item in strengths[:3]]
         strength_items.append(f"{full_count} 讲满分（100 分）")
@@ -310,7 +310,7 @@ class PdfReportBuilder:
         c.showPage()
 
     def _summary_page(self, c: Canvas, a: ReportAnalysis) -> None:
-        self._page_base(c, a, "⑨ 整体分析")
+        self._page_base(c, a, "⑧ 整体分析")
         c.setFillColor(HEADING)
         c.setFont(FONT_HEAVY, 13)
         c.drawString(70, 714, "整体评价")
