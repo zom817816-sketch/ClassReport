@@ -49,6 +49,20 @@ CARTOON_PINK = HexColor("#FFC6CD")
 CARTOON_MINT = HexColor("#BFE9D0")
 CARTOON_SKY = HexColor("#CBEAFF")
 CARTOON_PEACH = HexColor("#FFD7BA")
+MEMPHIS_PAPER = HexColor("#FFF9F0")
+MEMPHIS_INK = HexColor("#2F2C4A")
+MEMPHIS_PURPLE = HexColor("#7455D8")
+MEMPHIS_CORAL = HexColor("#FF6D78")
+MEMPHIS_TEAL = HexColor("#20BEC8")
+MEMPHIS_YELLOW = HexColor("#FFD34D")
+MEMPHIS_LILAC = HexColor("#EEE8FF")
+NOTEBOOK_PAPER = HexColor("#FFFEFA")
+NOTEBOOK_INK = HexColor("#28466A")
+NOTEBOOK_BLUE = HexColor("#3978BA")
+NOTEBOOK_RED = HexColor("#E15C64")
+NOTEBOOK_YELLOW = HexColor("#FFF0A3")
+NOTEBOOK_GREEN = HexColor("#C9E8D3")
+NOTEBOOK_PALE = HexColor("#EDF5FF")
 EMOJI_FONT = Path(r"C:\Windows\Fonts\seguiemj.ttf")
 
 
@@ -127,6 +141,9 @@ class PdfReportBuilder:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.is_cartoon = settings.template == "cartoon"
+        self.is_memphis = settings.template == "memphis"
+        self.is_notebook = settings.template == "notebook"
+        self.is_styled = self.is_cartoon or self.is_memphis or self.is_notebook
         self._emoji_cache: dict[str, io.BytesIO] = {}
 
     def build(self, report: ReportAnalysis, output_path: Path) -> GeneratedReport:
@@ -159,6 +176,12 @@ class PdfReportBuilder:
             writer.write(handle)
 
     def _cover(self, c: Canvas, a: ReportAnalysis) -> None:
+        if self.is_memphis:
+            self._memphis_cover(c, a)
+            return
+        if self.is_notebook:
+            self._notebook_cover(c, a)
+            return
         if self.is_cartoon:
             self._cartoon_cover(c, a)
             return
@@ -219,6 +242,70 @@ class PdfReportBuilder:
         c.setFont(FONT_BOLD, 10)
         c.drawCentredString(PAGE_W / 2, 227, f"报告时间：{self.settings.report_date.isoformat()}")
         c.drawCentredString(PAGE_W / 2, 212, f"指导老师：{self.settings.teacher}")
+        c.showPage()
+
+    def _memphis_cover(self, c: Canvas, a: ReportAnalysis) -> None:
+        student = a.student
+        c.setFillColor(MEMPHIS_PAPER)
+        c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+        self._memphis_decor(c, "cover")
+        c.setFillColor(MEMPHIS_CORAL)
+        c.rect(54, 540, 286, 116, fill=1, stroke=0)
+        c.setFillColor(MEMPHIS_YELLOW)
+        c.circle(414, 602, 56, fill=1, stroke=0)
+        c.setFillColor(MEMPHIS_PURPLE)
+        c.rect(366, 518, 128, 18, fill=1, stroke=0)
+        c.setFillColor(white)
+        c.setFont(FONT_HEAVY, 28)
+        c.drawString(75, 606, "2026 夏季班")
+        c.drawString(75, 568, "学情报告")
+        c.setFillColor(MEMPHIS_INK)
+        c.setFont(FONT_BOLD, 10.5)
+        c.drawString(76, 550, "GEOMETRY · GROWTH · PROGRESS")
+        c.setFillColor(MEMPHIS_LILAC)
+        c.roundRect(75, 400, PAGE_W - 150, 84, 7, fill=1, stroke=0)
+        c.setFillColor(MEMPHIS_INK)
+        c.setFont(FONT_HEAVY, 24)
+        c.drawCentredString(PAGE_W / 2, 447, student.name)
+        c.setFont(FONT_BOLD, 11)
+        c.drawCentredString(PAGE_W / 2, 424, f"{student.course_label} · {student.class_name} · {student.term}")
+        c.setFillColor(MEMPHIS_TEAL)
+        c.rect(88, 256, PAGE_W - 176, 54, fill=1, stroke=0)
+        c.setFillColor(white)
+        c.setFont(FONT_BOLD, 10)
+        c.drawCentredString(PAGE_W / 2, 286, f"报告时间：{self.settings.report_date.isoformat()}")
+        c.drawCentredString(PAGE_W / 2, 269, f"指导老师：{self.settings.teacher}")
+        c.showPage()
+
+    def _notebook_cover(self, c: Canvas, a: ReportAnalysis) -> None:
+        student = a.student
+        c.setFillColor(NOTEBOOK_PAPER)
+        c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+        self._notebook_rules(c)
+        self._notebook_decor(c, "cover")
+        c.setFillColor(NOTEBOOK_YELLOW)
+        c.roundRect(78, 552, PAGE_W - 156, 76, 6, fill=1, stroke=0)
+        c.setFillColor(NOTEBOOK_INK)
+        c.setFont(FONT_HEAVY, 27)
+        c.drawCentredString(PAGE_W / 2, 592, "2026 夏季班学情报告")
+        c.setFont(FONT_BOLD, 10.5)
+        c.drawCentredString(PAGE_W / 2, 568, "学习重点 · 成长记录 · 复习计划")
+        c.setStrokeColor(NOTEBOOK_BLUE)
+        c.setLineWidth(2)
+        c.line(105, 515, PAGE_W - 105, 515)
+        c.setFillColor(NOTEBOOK_PALE)
+        c.roundRect(102, 408, PAGE_W - 204, 70, 5, fill=1, stroke=0)
+        c.setFillColor(NOTEBOOK_INK)
+        c.setFont(FONT_HEAVY, 22)
+        c.drawCentredString(PAGE_W / 2, 447, student.name)
+        c.setFont(FONT_BOLD, 10.5)
+        c.drawCentredString(PAGE_W / 2, 425, f"{student.course_label} · {student.class_name} · {student.term}")
+        c.setFillColor(NOTEBOOK_GREEN)
+        c.roundRect(137, 251, PAGE_W - 274, 48, 5, fill=1, stroke=0)
+        c.setFillColor(NOTEBOOK_INK)
+        c.setFont(FONT_BOLD, 10)
+        c.drawCentredString(PAGE_W / 2, 278, f"报告时间：{self.settings.report_date.isoformat()}")
+        c.drawCentredString(PAGE_W / 2, 262, f"指导老师：{self.settings.teacher}")
         c.showPage()
 
     def _scores_page(self, c: Canvas, a: ReportAnalysis) -> None:
@@ -332,7 +419,7 @@ class PdfReportBuilder:
         low_text = self._core_weakness_text(a)
         # The cartoon page header uses a lower hand-drawn divider. Keep this
         # callout below that divider so its background cannot cover the line.
-        callout_y = 634 if self.is_cartoon else 646
+        callout_y = 634 if self.is_styled else 646
         self._callout(c, 48, callout_y, 499, 101, [
             ("✅", GREEN, f"优势：{strength_text}"),
             ("⚠️", RED, f"不足：{low_text}"),
@@ -418,6 +505,34 @@ class PdfReportBuilder:
         c.showPage()
 
     def _page_base(self, c: Canvas, a: ReportAnalysis, title: str) -> None:
+        if self.is_memphis:
+            c.setFillColor(MEMPHIS_PAPER)
+            c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+            self._watermark(c, a)
+            self._memphis_decor(c, title)
+            width = min(PAGE_W - 96, c.stringWidth(title, FONT_HEAVY, 16) + 28)
+            c.setFillColor(MEMPHIS_CORAL)
+            c.rect(48, 744, width, 29, fill=1, stroke=0)
+            c.setFillColor(white)
+            c.setFont(FONT_HEAVY, 16)
+            c.drawString(56, 754, title)
+            c.setStrokeColor(MEMPHIS_TEAL)
+            c.setLineWidth(2)
+            c.line(48, 738, PAGE_W - 48, 738)
+            return
+        if self.is_notebook:
+            c.setFillColor(NOTEBOOK_PAPER)
+            c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+            self._notebook_rules(c)
+            self._watermark(c, a)
+            self._notebook_decor(c, title)
+            c.setFillColor(NOTEBOOK_INK)
+            c.setFont(FONT_HEAVY, 16)
+            c.drawString(66, 756, title)
+            c.setStrokeColor(NOTEBOOK_BLUE)
+            c.setLineWidth(1.2)
+            c.line(66, 740, PAGE_W - 48, 740)
+            return
         if self.is_cartoon:
             c.setFillColor(CARTOON_PAPER)
             c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
@@ -451,6 +566,31 @@ class PdfReportBuilder:
             c.drawRightString(PAGE_W - 48, 766, f"{a.student.course_label} · {a.student.name} · {self.settings.teacher}")
 
     def _section(self, c: Canvas, title: str, y: float) -> None:
+        if self.is_memphis:
+            color = MEMPHIS_TEAL if sum(ord(char) for char in title) % 2 else MEMPHIS_PURPLE
+            width = min(PAGE_W - 96, c.stringWidth(title, FONT_HEAVY, 15) + 24)
+            c.setFillColor(color)
+            c.rect(48, y - 6, width, 23, fill=1, stroke=0)
+            c.setFillColor(white)
+            c.setFont(FONT_HEAVY, 15)
+            c.drawString(56, y, title)
+            c.setStrokeColor(MEMPHIS_INK)
+            c.setLineWidth(0.9)
+            c.setDash(2, 2)
+            c.line(48, y - 12, PAGE_W - 48, y - 12)
+            c.setDash()
+            return
+        if self.is_notebook:
+            width = min(PAGE_W - 110, c.stringWidth(title, FONT_HEAVY, 15) + 18)
+            c.setFillColor(NOTEBOOK_YELLOW)
+            c.roundRect(62, y - 6, width, 23, 4, fill=1, stroke=0)
+            c.setFillColor(NOTEBOOK_INK)
+            c.setFont(FONT_HEAVY, 15)
+            c.drawString(69, y, title)
+            c.setStrokeColor(NOTEBOOK_BLUE)
+            c.setLineWidth(0.8)
+            c.line(66, y - 12, PAGE_W - 48, y - 12)
+            return
         if self.is_cartoon:
             width = min(PAGE_W - 96, c.stringWidth(title, FONT_HEAVY, 15) + 24)
             c.setFillColor(CARTOON_MINT)
@@ -469,6 +609,33 @@ class PdfReportBuilder:
 
     def _cards(self, c: Canvas, cards: list[tuple[str, str, Color]], y: float) -> None:
         width, gap, x = 77, 7, 48
+        if self.is_memphis:
+            colors = (MEMPHIS_CORAL, MEMPHIS_TEAL, MEMPHIS_YELLOW, MEMPHIS_PURPLE, MEMPHIS_TEAL, MEMPHIS_CORAL)
+            for index, (value, label, _) in enumerate(cards):
+                c.setFillColor(colors[index])
+                c.rect(x, y - 76, width, 66, fill=1, stroke=0)
+                c.setFillColor(MEMPHIS_INK if colors[index] == MEMPHIS_YELLOW else white)
+                c.setFont(FONT_HEAVY, 14)
+                c.drawCentredString(x + width / 2, y - 33, value)
+                c.setFont(FONT_BOLD, 7.4)
+                self._center_wrapped(c, label, x + width / 2, y - 53, width - 8, 8.2, MEMPHIS_INK if colors[index] == MEMPHIS_YELLOW else white)
+                x += width + gap
+            return
+        if self.is_notebook:
+            colors = (NOTEBOOK_YELLOW, NOTEBOOK_GREEN, NOTEBOOK_PALE, HexColor("#FFE4E5"), NOTEBOOK_GREEN, NOTEBOOK_PALE)
+            for index, (value, label, _) in enumerate(cards):
+                c.setFillColor(colors[index])
+                c.roundRect(x, y - 76, width, 66, 4, fill=1, stroke=0)
+                c.setStrokeColor(NOTEBOOK_BLUE)
+                c.setLineWidth(0.65)
+                c.rect(x + 3, y - 73, width - 6, 1, fill=0, stroke=1)
+                c.setFillColor(NOTEBOOK_INK)
+                c.setFont(FONT_HEAVY, 14)
+                c.drawCentredString(x + width / 2, y - 33, value)
+                c.setFont(FONT_BOLD, 7.4)
+                self._center_wrapped(c, label, x + width / 2, y - 53, width - 8, 8.2, NOTEBOOK_INK)
+                x += width + gap
+            return
         cartoon_colors = (CARTOON_YELLOW, CARTOON_MINT, CARTOON_PINK, CARTOON_SKY, CARTOON_PEACH, CARTOON_LILAC)
         for index, (value, label, color) in enumerate(cards):
             if self.is_cartoon:
@@ -493,6 +660,26 @@ class PdfReportBuilder:
             x += width + gap
 
     def _note(self, c: Canvas, text: str, y: float, icon: str = "📌") -> None:
+        if self.is_memphis:
+            c.setFillColor(MEMPHIS_YELLOW)
+            c.rect(48, y - 18, 499, 20, fill=1, stroke=0)
+            c.setStrokeColor(MEMPHIS_INK)
+            c.setDash(1.5, 1.5)
+            c.line(52, y - 16, 542, y - 16)
+            c.setDash()
+            self._emoji(c, icon, 55, y - 8, 12)
+            c.setFillColor(MEMPHIS_INK)
+            c.setFont(FONT_BOLD, 8.4)
+            c.drawString(71, y - 11, text)
+            return
+        if self.is_notebook:
+            c.setFillColor(NOTEBOOK_YELLOW)
+            c.roundRect(66, y - 18, 481, 20, 3, fill=1, stroke=0)
+            self._emoji(c, icon, 73, y - 8, 12)
+            c.setFillColor(NOTEBOOK_INK)
+            c.setFont(FONT_BOLD, 8.4)
+            c.drawString(89, y - 11, text)
+            return
         if self.is_cartoon:
             c.setFillColor(CARTOON_YELLOW)
             c.roundRect(48, y - 18, 499, 20, 5, fill=1, stroke=0)
@@ -515,10 +702,10 @@ class PdfReportBuilder:
     ) -> float:
         header_h, row_h = 19, 18
         total = sum(widths)
-        main_color = CARTOON_PURPLE if self.is_cartoon else BLUE
-        row_color = CARTOON_PAPER if self.is_cartoon else white
-        alternate_color = CARTOON_LILAC if self.is_cartoon else LIGHT_GREY
-        label_color = CARTOON_PINK if self.is_cartoon else BLUE
+        main_color = MEMPHIS_PURPLE if self.is_memphis else (NOTEBOOK_BLUE if self.is_notebook else (CARTOON_PURPLE if self.is_cartoon else BLUE))
+        row_color = MEMPHIS_PAPER if self.is_memphis else (NOTEBOOK_PAPER if self.is_notebook else (CARTOON_PAPER if self.is_cartoon else white))
+        alternate_color = MEMPHIS_LILAC if self.is_memphis else (NOTEBOOK_PALE if self.is_notebook else (CARTOON_LILAC if self.is_cartoon else LIGHT_GREY))
+        label_color = MEMPHIS_TEAL if self.is_memphis else (NOTEBOOK_GREEN if self.is_notebook else (CARTOON_PINK if self.is_cartoon else BLUE))
         c.setFillColor(main_color)
         c.rect(x, y - header_h, total, header_h, fill=1, stroke=0)
         cursor = x
@@ -541,7 +728,7 @@ class PdfReportBuilder:
                     c.setFillColor(white)
                     c.setFont(FONT_BOLD, font_size)
                 else:
-                    value_color = CARTOON_INK if self.is_cartoon else TEXT
+                    value_color = MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else TEXT))
                     if value == "强" or (value.replace('.', '', 1).isdigit() and value != "—"):
                         value_color = GREEN
                     c.setFillColor(value_color)
@@ -551,6 +738,15 @@ class PdfReportBuilder:
             y -= row_h
         if self.is_cartoon:
             self._hand_line(c, x, y, x + total, y, CARTOON_PURPLE, 0.55)
+        elif self.is_memphis:
+            c.setStrokeColor(MEMPHIS_INK)
+            c.setDash(1.5, 1.5)
+            c.line(x, y, x + total, y)
+            c.setDash()
+        elif self.is_notebook:
+            c.setStrokeColor(NOTEBOOK_BLUE)
+            c.setLineWidth(0.6)
+            c.line(x, y, x + total, y)
         return y
 
     def _mini_matrix(self, c: Canvas, x: float, y: float, rows: list[list[str]]) -> None:
@@ -564,22 +760,27 @@ class PdfReportBuilder:
             # row grows to allow one name per cell to wrap onto a second line.
             row_h = 34 if row_index == 2 else standard_row_h
             current_y = cursor_y
-            if self.is_cartoon:
+            if self.is_memphis:
+                fill = MEMPHIS_PURPLE if row_index == 0 else (MEMPHIS_LILAC if row_index % 2 else MEMPHIS_PAPER)
+            elif self.is_notebook:
+                fill = NOTEBOOK_BLUE if row_index == 0 else (NOTEBOOK_PALE if row_index % 2 else NOTEBOOK_PAPER)
+            elif self.is_cartoon:
                 fill = CARTOON_PURPLE if row_index == 0 else (CARTOON_SKY if row_index % 2 else CARTOON_PAPER)
             else:
                 fill = BLUE if row_index == 0 else (LIGHT_BLUE if row_index % 2 else white)
             c.setFillColor(fill)
             c.rect(x, current_y - row_h, label_width + cell_width * 14, row_h, fill=1, stroke=0)
             if row_index > 0:
-                c.setFillColor(CARTOON_PINK if self.is_cartoon else BLUE)
+                c.setFillColor(MEMPHIS_TEAL if self.is_memphis else (NOTEBOOK_GREEN if self.is_notebook else (CARTOON_PINK if self.is_cartoon else BLUE)))
                 c.rect(x, current_y - row_h, label_width, row_h, fill=1, stroke=0)
-            c.setFillColor(white if not self.is_cartoon or row_index == 0 else CARTOON_INK)
+            c.setFillColor(white if not self.is_styled or row_index == 0 else (MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else CARTOON_INK)))
             c.setFont(FONT_BOLD, 7.3)
             label_y = current_y - 13 if row_h == standard_row_h else current_y - 20
             self._center_ellipsize(c, row[0], x + label_width / 2, label_y, label_width - 4, 7.3)
             c.setFont(FONT_BOLD if row_index == 0 else FONT, 7.1)
             for index, value in enumerate(row[1:]):
-                color = GREEN if row_index == 3 and value not in ("—", "") and float(value) >= 85 else (ORANGE if row_index == 3 and value not in ("—", "") else (white if row_index == 0 else (CARTOON_INK if self.is_cartoon else TEXT)))
+                default_color = MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else TEXT))
+                color = GREEN if row_index == 3 and value not in ("—", "") and float(value) >= 85 else (ORANGE if row_index == 3 and value not in ("—", "") else (white if row_index == 0 else default_color))
                 c.setFillColor(color)
                 cell_x = x + label_width + cell_width * index + cell_width / 2
                 if row_index == 2:
@@ -589,6 +790,9 @@ class PdfReportBuilder:
             cursor_y -= row_h
         if self.is_cartoon:
             self._hand_line(c, x, cursor_y, x + label_width + cell_width * 14, cursor_y, CARTOON_PURPLE, 0.55)
+        elif self.is_notebook:
+            c.setStrokeColor(NOTEBOOK_BLUE)
+            c.line(x, cursor_y, x + label_width + cell_width * 14, cursor_y)
 
     def _center_cell_wrapped(
         self, c: Canvas, text: object, center_x: float, top_y: float, height: float,
@@ -616,7 +820,17 @@ class PdfReportBuilder:
             c.drawCentredString(center_x, first_baseline - index * leading, line)
 
     def _callout(self, c: Canvas, x: float, y: float, width: float, height: float, lines: list[tuple[str, Color, str]]) -> None:
-        if self.is_cartoon:
+        if self.is_memphis:
+            c.setFillColor(MEMPHIS_LILAC)
+            c.rect(x, y, width, height, fill=1, stroke=0)
+            c.setFillColor(MEMPHIS_CORAL)
+            c.circle(x + width - 16, y + height - 14, 8, fill=1, stroke=0)
+        elif self.is_notebook:
+            c.setFillColor(NOTEBOOK_YELLOW)
+            c.roundRect(x + 18, y, width - 18, height, 4, fill=1, stroke=0)
+            c.setFillColor(NOTEBOOK_RED)
+            c.rect(x + 18, y, 3, height, fill=1, stroke=0)
+        elif self.is_cartoon:
             c.setFillColor(CARTOON_YELLOW)
             c.roundRect(x, y, width, height, 11, fill=1, stroke=0)
             self._hand_line(c, x + 7, y + 6, x + width - 7, y + 6, CARTOON_PURPLE, 0.75)
@@ -636,17 +850,25 @@ class PdfReportBuilder:
         title: str, items: list[str], accent: Color,
     ) -> None:
         """Compact paired cards keep the diagnosis page visually balanced."""
-        c.setFillColor(CARTOON_PAPER if self.is_cartoon else PALE_BLUE)
+        base = MEMPHIS_PAPER if self.is_memphis else (NOTEBOOK_PAPER if self.is_notebook else (CARTOON_PAPER if self.is_cartoon else PALE_BLUE))
+        c.setFillColor(base)
         c.roundRect(x, y, width, height, 5, fill=1, stroke=0)
-        c.setFillColor(CARTOON_MINT if self.is_cartoon and accent == GREEN else (CARTOON_PEACH if self.is_cartoon else accent))
+        if self.is_memphis:
+            heading = MEMPHIS_TEAL if accent == GREEN else MEMPHIS_CORAL
+        elif self.is_notebook:
+            heading = NOTEBOOK_GREEN if accent == GREEN else HexColor("#FFD0D2")
+        else:
+            heading = CARTOON_MINT if self.is_cartoon and accent == GREEN else (CARTOON_PEACH if self.is_cartoon else accent)
+        c.setFillColor(heading)
         c.roundRect(x, y + height - 29, width, 29, 5, fill=1, stroke=0)
         c.rect(x, y + height - 29, width, 6, fill=1, stroke=0)
-        c.setFillColor(CARTOON_INK if self.is_cartoon else white)
+        c.setFillColor(MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else white)))
         c.setFont(FONT_BOLD, 10.5)
         c.drawString(x + 12, y + height - 19, title)
         cursor = y + height - 46
         for item in items[:4]:
-            self._wrapped(c, f"• {item}", x + 12, cursor, width - 24, 8.7, 12, CARTOON_INK if self.is_cartoon else TEXT, max_lines=2, font_name=FONT_BOLD)
+            ink = MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else TEXT))
+            self._wrapped(c, f"• {item}", x + 12, cursor, width - 24, 8.7, 12, ink, max_lines=2, font_name=FONT_BOLD)
             cursor -= 19
         if self.is_cartoon:
             self._hand_line(c, x + 5, y + 5, x + width - 5, y + 5, CARTOON_PURPLE, 0.6)
@@ -674,26 +896,38 @@ class PdfReportBuilder:
             c.drawImage(ImageReader(image), x, center_y - size / 2, width=size, height=size, mask="auto")
 
     def _multiline_box(self, c: Canvas, x: float, y: float, width: float, height: float, lines: list[str]) -> None:
-        c.setFillColor(CARTOON_LILAC if self.is_cartoon else HexColor("#E5F2FF"))
-        if self.is_cartoon:
+        c.setFillColor(MEMPHIS_LILAC if self.is_memphis else (NOTEBOOK_PALE if self.is_notebook else (CARTOON_LILAC if self.is_cartoon else HexColor("#E5F2FF"))))
+        if self.is_memphis:
+            c.rect(x, y, width, height, fill=1, stroke=0)
+            c.setStrokeColor(MEMPHIS_TEAL)
+            c.setDash(2, 2)
+            c.line(x + 6, y + height - 34, x + width - 6, y + height - 34)
+            c.setDash()
+        elif self.is_notebook:
+            c.roundRect(x + 18, y, width - 18, height, 5, fill=1, stroke=0)
+            c.setFillColor(NOTEBOOK_RED)
+            c.rect(x + 18, y, 3, height, fill=1, stroke=0)
+        elif self.is_cartoon:
             c.roundRect(x, y, width, height, 9, fill=1, stroke=0)
             self._hand_line(c, x + 6, y + height - 34, x + width - 6, y + height - 34, CARTOON_PURPLE, 0.7)
         else:
             c.rect(x, y, width, height, fill=1, stroke=0)
             c.setFillColor(DEEP_BLUE)
             c.rect(x, y, 4, height, fill=1, stroke=0)
-        c.setFillColor(CARTOON_INK if self.is_cartoon else DEEP_BLUE)
+        ink = MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else DEEP_BLUE))
+        c.setFillColor(ink)
         c.setFont(FONT_BOLD, 10.5)
         c.drawString(x + 14, y + height - 22, "五维诊断结论")
         cursor = y + height - 48
         for line in lines:
-            c.setFillColor(CARTOON_INK if self.is_cartoon else TEXT)
+            content_ink = MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else TEXT))
+            c.setFillColor(content_ink)
             c.setFont(FONT, 9.4)
             # Advance according to the real number of wrapped lines instead
             # of distributing five entries across the full panel height.
             # This keeps consecutive recommendations visually connected.
             used_lines = self._wrapped_with_bold_prefix(
-                c, line, x + 12, cursor, width - 24, 9.4, 17, CARTOON_INK if self.is_cartoon else TEXT,
+                c, line, x + 12, cursor, width - 24, 9.4, 17, content_ink,
             )
             cursor -= used_lines * 17 + 9
 
@@ -760,9 +994,61 @@ class PdfReportBuilder:
             end_y = y + 34 + math.sin(radians) * 35
             self._hand_line(c, start_x, start_y, end_x, end_y, CARTOON_INK, 0.55)
 
+    def _memphis_decor(self, c: Canvas, seed: str) -> None:
+        """Original Memphis-inspired shapes, kept outside the data area."""
+        offset = sum(ord(char) for char in seed) % 4
+        c.setFillColor(MEMPHIS_TEAL)
+        c.circle(72, 704, 7, fill=1, stroke=0)
+        c.setFillColor(MEMPHIS_YELLOW)
+        c.circle(PAGE_W - 68, 704, 9, fill=1, stroke=0)
+        c.setFillColor(MEMPHIS_CORAL)
+        c.circle(PAGE_W - 73, 96, 5 + offset, fill=1, stroke=0)
+        c.setStrokeColor(MEMPHIS_PURPLE)
+        c.setLineWidth(1.3)
+        for index in range(4):
+            x = 64 + index * 7
+            c.line(x, 128, x + 4, 136)
+        c.saveState()
+        c.translate(PAGE_W - 88, 142)
+        c.rotate(20)
+        c.setFillColor(MEMPHIS_TEAL)
+        c.rect(-8, -8, 16, 16, fill=1, stroke=0)
+        c.restoreState()
+
+    def _notebook_rules(self, c: Canvas) -> None:
+        c.setStrokeColor(HexColor("#DCE9F7"))
+        c.setLineWidth(0.35)
+        for y in range(88, 744, 22):
+            c.line(48, y, PAGE_W - 48, y)
+        c.setStrokeColor(HexColor("#F0B6B9"))
+        c.setLineWidth(0.65)
+        c.line(58, 64, 58, PAGE_H - 48)
+        c.setFillColor(NOTEBOOK_PAPER)
+        for y in range(130, 730, 74):
+            c.circle(58, y, 4, fill=1, stroke=0)
+            c.setStrokeColor(HexColor("#A9C3E1"))
+            c.circle(58, y, 4, fill=0, stroke=1)
+
+    def _notebook_decor(self, c: Canvas, seed: str) -> None:
+        offset = sum(ord(char) for char in seed) % 3
+        c.setFillColor(NOTEBOOK_YELLOW)
+        c.roundRect(PAGE_W - 87, 705, 21, 13, 2, fill=1, stroke=0)
+        c.setFillColor(NOTEBOOK_GREEN)
+        c.roundRect(PAGE_W - 79, 104 + offset * 3, 17, 11, 2, fill=1, stroke=0)
+        c.setFillColor(NOTEBOOK_RED)
+        c.circle(82, 704, 4, fill=1, stroke=0)
+
     def _watermark(self, c: Canvas, a: ReportAnalysis, center_y: float = PAGE_H / 2) -> None:
         c.saveState()
-        c.setFillColor(HexColor("#F7EFFE") if self.is_cartoon else HexColor("#F3FAFD"))
+        if self.is_memphis:
+            watermark = HexColor("#F4EFFF")
+        elif self.is_notebook:
+            watermark = HexColor("#EEF5FF")
+        elif self.is_cartoon:
+            watermark = HexColor("#F7EFFE")
+        else:
+            watermark = HexColor("#F3FAFD")
+        c.setFillColor(watermark)
         c.setFont(FONT_BOLD, 27)
         c.translate(PAGE_W / 2, center_y)
         c.rotate(36)
@@ -772,12 +1058,15 @@ class PdfReportBuilder:
     def _charts_image(self, a: ReportAnalysis) -> io.BytesIO:
         set_matplotlib_font()
         figure = plt.figure(figsize=(8.2, 7.1), dpi=150)
-        figure.patch.set_facecolor("#FFFDF4" if self.is_cartoon else "#FCFEFF")
+        chart_paper = "#FFF9F0" if self.is_memphis else ("#FFFEFA" if self.is_notebook else ("#FFFDF4" if self.is_cartoon else "#FCFEFF"))
+        figure.patch.set_facecolor(chart_paper)
         grid = figure.add_gridspec(2, 2, hspace=0.50, wspace=0.28)
         self._radar(figure.add_subplot(grid[0, 0], polar=True), a, "入班测板块雷达", False)
         self._radar(figure.add_subplot(grid[0, 1], polar=True), a, "课堂巩固板块雷达", True)
-        self._bars(figure.add_subplot(grid[1, 0]), a.student.intro_scores, a.intro_class_average, "入班测 14 讲分数", "#836CC0" if self.is_cartoon else "#3484A7")
-        self._bars(figure.add_subplot(grid[1, 1]), a.student.consolidation_scores, a.consolidation_class_average, "课堂巩固 15 讲分数", "#4DAA7B" if self.is_cartoon else "#21A34A")
+        first_color = "#20BEC8" if self.is_memphis else ("#3978BA" if self.is_notebook else ("#836CC0" if self.is_cartoon else "#3484A7"))
+        second_color = "#7455D8" if self.is_memphis else ("#62A97A" if self.is_notebook else ("#4DAA7B" if self.is_cartoon else "#21A34A"))
+        self._bars(figure.add_subplot(grid[1, 0]), a.student.intro_scores, a.intro_class_average, "入班测 14 讲分数", first_color)
+        self._bars(figure.add_subplot(grid[1, 1]), a.student.consolidation_scores, a.consolidation_class_average, "课堂巩固 15 讲分数", second_color)
         output = io.BytesIO()
         figure.savefig(output, format="png", bbox_inches="tight", facecolor="white")
         plt.close(figure)
@@ -815,7 +1104,7 @@ class PdfReportBuilder:
             personal, class_values = [0], [0]
         count = len(labels)
         angles = [2 * math.pi * n / count for n in range(count)]
-        axis.set_facecolor("#FFFDF4" if self.is_cartoon else "#FBFDFF")
+        axis.set_facecolor("#FFF9F0" if self.is_memphis else ("#FFFEFA" if self.is_notebook else ("#FFFDF4" if self.is_cartoon else "#FBFDFF")))
         axis.set_theta_offset(math.pi / 2)
         axis.set_theta_direction(-1)
         axis.set_xticks(angles)
@@ -823,15 +1112,21 @@ class PdfReportBuilder:
         axis.set_ylim(0, 100)
         axis.set_yticks([20, 40, 60, 80, 100])
         axis.set_yticklabels(["20", "40", "60", "80", "100"], fontsize=5.5, color="#7B8B99")
-        axis.grid(color="#DCD2EB" if self.is_cartoon else "#C9DCE7", linewidth=0.7, alpha=0.9)
-        axis.spines["polar"].set_color("#BEAEDB" if self.is_cartoon else "#9FC1D2")
+        axis.grid(color="#D7CFEF" if self.is_memphis else ("#CFE0F2" if self.is_notebook else ("#DCD2EB" if self.is_cartoon else "#C9DCE7")), linewidth=0.7, alpha=0.9)
+        axis.spines["polar"].set_color("#7455D8" if self.is_memphis else ("#87A9D0" if self.is_notebook else ("#BEAEDB" if self.is_cartoon else "#9FC1D2")))
         closed_angles = angles + angles[:1]
         class_line = "#E8787F"
         class_fill = "#F8C8CB"
         # The template distinguishes the two assessments at a glance:
         # blue/red for entry assessment and green/red for consolidation.
-        personal_line = ("#4DAA7B" if consolidation else "#836CC0") if self.is_cartoon else ("#22A84A" if consolidation else "#1681B5")
-        personal_fill = ("#BFE9D0" if consolidation else "#D9CFF4") if self.is_cartoon else ("#9FDEAE" if consolidation else "#59B5D8")
+        if self.is_memphis:
+            personal_line, personal_fill = (("#7455D8", "#D8CCFF") if consolidation else ("#20BEC8", "#BDEEF1"))
+        elif self.is_notebook:
+            personal_line, personal_fill = (("#62A97A", "#C9E8D3") if consolidation else ("#3978BA", "#D6E9FA"))
+        elif self.is_cartoon:
+            personal_line, personal_fill = (("#4DAA7B", "#BFE9D0") if consolidation else ("#836CC0", "#D9CFF4"))
+        else:
+            personal_line, personal_fill = (("#22A84A", "#9FDEAE") if consolidation else ("#1681B5", "#59B5D8"))
         axis.plot(closed_angles, class_values + class_values[:1], color=class_line, linewidth=1.35, linestyle="--", marker="o", markersize=2.5, label="班级均分")
         axis.fill(closed_angles, class_values + class_values[:1], color=class_fill, alpha=0.24)
         personal_label = "个人" if not missing_data else "个人（缺失项按班均参考）"
@@ -844,7 +1139,7 @@ class PdfReportBuilder:
         xs = list(range(1, len(personal) + 1))
         personal_values = [x if x is not None else float("nan") for x in personal]
         class_values = [x if x is not None else float("nan") for x in class_scores]
-        axis.set_facecolor("#FFFDF4" if self.is_cartoon else "#FBFDFF")
+        axis.set_facecolor("#FFF9F0" if self.is_memphis else ("#FFFEFA" if self.is_notebook else ("#FFFDF4" if self.is_cartoon else "#FBFDFF")))
         axis.bar([x - 0.19 for x in xs], class_values, width=0.34, color="#F2A0A8", alpha=0.78, label="班级均分", zorder=2)
         axis.bar([x + 0.19 for x in xs], personal_values, width=0.34, color=color, label="个人", zorder=3)
         axis.set_ylim(0, 108)
@@ -856,11 +1151,12 @@ class PdfReportBuilder:
         axis.set_ylabel("分数", fontsize=6.5, color="#607382")
         axis.tick_params(labelsize=5.8, colors="#607382", length=0)
         axis.legend(fontsize=5.8, loc="upper left", frameon=False, ncol=2)
-        axis.grid(axis="y", color="#E4D9E9" if self.is_cartoon else "#D9E8EF", linewidth=0.7, linestyle="--", zorder=0)
+        axis.grid(axis="y", color="#E3D8EF" if self.is_memphis else ("#D7E4F3" if self.is_notebook else ("#E4D9E9" if self.is_cartoon else "#D9E8EF")), linewidth=0.7, linestyle="--", zorder=0)
         axis.spines["top"].set_visible(False)
         axis.spines["right"].set_visible(False)
-        axis.spines["left"].set_color("#CBBEDC" if self.is_cartoon else "#BBD1DE")
-        axis.spines["bottom"].set_color("#CBBEDC" if self.is_cartoon else "#BBD1DE")
+        spine_color = "#B7A6E9" if self.is_memphis else ("#AFC9E3" if self.is_notebook else ("#CBBEDC" if self.is_cartoon else "#BBD1DE"))
+        axis.spines["left"].set_color(spine_color)
+        axis.spines["bottom"].set_color(spine_color)
 
     @staticmethod
     def _lesson_text(number: int, lesson, score: float) -> str:

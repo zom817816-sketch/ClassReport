@@ -22,9 +22,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--teacher", default="毛远老师", help="指导老师姓名")
     parser.add_argument(
         "--template",
-        choices=("standard", "cartoon"),
+        choices=("standard", "cartoon", "memphis", "notebook"),
         default="standard",
-        help="报告模板：standard（标准专业风）或 cartoon（手绘卡通风）",
+        help="报告模板：standard（标准专业风）、cartoon（手绘卡通风）、memphis（孟菲斯几何风）或 notebook（校园笔记风）",
     )
     parser.add_argument("--keep-output", action="store_true", help="保留既有 output 文件，不清空旧结果")
     parser.add_argument("--no-encrypt", action="store_true", help="仅调试时使用：不加密 PDF")
@@ -100,7 +100,11 @@ def main(argv: list[str] | None = None) -> None:
                 "期次": student.term,
                 "课程": student.course_label,
                 "班级": student.class_name,
-                "报告模板": "手绘卡通风" if settings.template == "cartoon" else "标准专业风",
+                "报告模板": {
+                    "cartoon": "手绘卡通风",
+                    "memphis": "孟菲斯几何风",
+                    "notebook": "校园笔记风",
+                }.get(settings.template, "标准专业风"),
                 "报告文件": str(result.path.relative_to(settings.output_dir)),
                 "PDF加密": "是" if result.encrypted and not args.no_encrypt else "否（缺少手机号后四位）" if not student.phone_tail else "否（调试）",
                 "入班测均分": "" if analysis.intro_average is None else f"{analysis.intro_average:.2f}",

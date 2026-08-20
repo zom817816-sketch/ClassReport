@@ -47,9 +47,15 @@ class TeacherApp:
         self.teacher = tk.StringVar(value="毛远老师")
         self.report_date = tk.StringVar(value=date.today().isoformat())
         self.initial_template = self.config.get("REPORT_TEMPLATE", "standard")
-        if self.initial_template not in {"standard", "cartoon"}:
+        if self.initial_template not in {"standard", "cartoon", "memphis", "notebook"}:
             self.initial_template = "standard"
-        self.template = tk.StringVar(value="手绘卡通风" if self.initial_template == "cartoon" else "标准专业风")
+        template_labels = {
+            "standard": "标准专业风",
+            "cartoon": "手绘卡通风",
+            "memphis": "孟菲斯几何风",
+            "notebook": "校园笔记风",
+        }
+        self.template = tk.StringVar(value=template_labels[self.initial_template])
 
         self.window.title("课情报告生成器")
         self.window.geometry("720x660")
@@ -79,7 +85,7 @@ class TeacherApp:
         self._field(form, 5, "指导老师", self.teacher)
         self._field(form, 6, "报告日期", self.report_date)
         ttk.Label(form, text="报告模板", width=18).grid(row=7, column=0, sticky="w", pady=5)
-        ttk.Combobox(form, textvariable=self.template, values=("标准专业风", "手绘卡通风"), state="readonly").grid(row=7, column=1, sticky="ew", pady=5)
+        ttk.Combobox(form, textvariable=self.template, values=("标准专业风", "手绘卡通风", "孟菲斯几何风", "校园笔记风"), state="readonly").grid(row=7, column=1, sticky="ew", pady=5)
         ttk.Label(form, text="app_token 是 Base 链接中 /base/ 后的那段字符串。", foreground="#666666").grid(row=8, column=1, sticky="w", pady=(0, 12))
 
         buttons = ttk.Frame(container)
@@ -114,7 +120,11 @@ class TeacherApp:
         app_id = self.app_id.get().strip()
         app_secret = self.app_secret.get().strip()
         app_token = self.app_token.get().strip()
-        template = "cartoon" if self.template.get() == "手绘卡通风" else "standard"
+        template = {
+            "手绘卡通风": "cartoon",
+            "孟菲斯几何风": "memphis",
+            "校园笔记风": "notebook",
+        }.get(self.template.get(), "standard")
         use_user_token = self.auth_mode.get() == "用户令牌"
         if use_user_token and not token:
             messagebox.showerror("缺少凭据", "请选择用户令牌认证时，必须填写飞书用户令牌。")
@@ -166,7 +176,11 @@ class TeacherApp:
         elif preflight:
             cli_args.append("--validate-only")
         else:
-            template = "cartoon" if self.template.get() == "手绘卡通风" else "standard"
+            template = {
+                "手绘卡通风": "cartoon",
+                "孟菲斯几何风": "memphis",
+                "校园笔记风": "notebook",
+            }.get(self.template.get(), "standard")
             cli_args.extend([
                 "--date", self.report_date.get().strip(),
                 "--teacher", self.teacher.get().strip(),
