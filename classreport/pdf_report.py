@@ -63,6 +63,7 @@ NOTEBOOK_MARGIN = HexColor("#B7D2EC")
 NOTEBOOK_YELLOW = HexColor("#FFF0A3")
 NOTEBOOK_GREEN = HexColor("#C9E8D3")
 NOTEBOOK_PALE = HexColor("#EDF5FF")
+NOTEBOOK_LEFT_GUIDE_X = 36
 EMOJI_FONT = Path(r"C:\Windows\Fonts\seguiemj.ttf")
 
 
@@ -1030,12 +1031,14 @@ class PdfReportBuilder:
             c.line(48, y, PAGE_W - 48, y)
         c.setStrokeColor(NOTEBOOK_MARGIN)
         c.setLineWidth(0.65)
-        c.line(58, 64, 58, PAGE_H - 48)
+        # Keep the notebook guide outside the 48pt report content margin so
+        # tables and cards remain wholly inside the ruled writing area.
+        c.line(NOTEBOOK_LEFT_GUIDE_X, 64, NOTEBOOK_LEFT_GUIDE_X, PAGE_H - 48)
         c.setFillColor(NOTEBOOK_PAPER)
         for y in range(130, 730, 74):
-            c.circle(58, y, 4, fill=1, stroke=0)
+            c.circle(NOTEBOOK_LEFT_GUIDE_X, y, 4, fill=1, stroke=0)
             c.setStrokeColor(HexColor("#A9C3E1"))
-            c.circle(58, y, 4, fill=0, stroke=1)
+            c.circle(NOTEBOOK_LEFT_GUIDE_X, y, 4, fill=0, stroke=1)
 
     def _notebook_decor(self, c: Canvas, seed: str) -> None:
         offset = sum(ord(char) for char in seed) % 3
