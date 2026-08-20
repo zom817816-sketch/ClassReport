@@ -20,6 +20,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1], help="ClassReport 项目目录")
     parser.add_argument("--date", type=date.fromisoformat, default=date.today(), help="报告日期，格式 YYYY-MM-DD")
     parser.add_argument("--teacher", default="毛远老师", help="指导老师姓名")
+    parser.add_argument(
+        "--template",
+        choices=("standard", "cartoon"),
+        default="standard",
+        help="报告模板：standard（标准专业风）或 cartoon（手绘卡通风）",
+    )
     parser.add_argument("--keep-output", action="store_true", help="保留既有 output 文件，不清空旧结果")
     parser.add_argument("--no-encrypt", action="store_true", help="仅调试时使用：不加密 PDF")
     parser.add_argument("--sync-feishu", action="store_true", help="先从飞书多维表格下载最新数据，再生成报告")
@@ -55,7 +61,13 @@ def main(argv: list[str] | None = None) -> None:
             return
         if matched < len(DataRepository.FILES):
             raise SystemExit(f"数据预检失败：仅识别到 {matched}/{len(DataRepository.FILES)} 张报告数据表，请检查表名和字段。")
-    settings = Settings(root=root, report_date=args.date, teacher=args.teacher, source_data_dir=source_data_dir)
+    settings = Settings(
+        root=root,
+        report_date=args.date,
+        teacher=args.teacher,
+        source_data_dir=source_data_dir,
+        template=args.template,
+    )
     try:
         loaded = DataRepository(settings.data_dir).load()
     except (FileNotFoundError, KeyError, ValueError) as error:
@@ -88,6 +100,7 @@ def main(argv: list[str] | None = None) -> None:
                 "期次": student.term,
                 "课程": student.course_label,
                 "班级": student.class_name,
+                "报告模板": "手绘卡通风" if settings.template == "cartoon" else "标准专业风",
                 "报告文件": str(result.path.relative_to(settings.output_dir)),
                 "PDF加密": "是" if result.encrypted and not args.no_encrypt else "否（缺少手机号后四位）" if not student.phone_tail else "否（调试）",
                 "入班测均分": "" if analysis.intro_average is None else f"{analysis.intro_average:.2f}",

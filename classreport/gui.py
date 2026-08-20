@@ -45,9 +45,13 @@ class TeacherApp:
         self.auth_mode = tk.StringVar(value="用户令牌" if self.initial_access_token else "应用身份")
         self.teacher = tk.StringVar(value="毛远老师")
         self.report_date = tk.StringVar(value=date.today().isoformat())
+        self.initial_template = self.config.get("REPORT_TEMPLATE", "standard")
+        if self.initial_template not in {"standard", "cartoon"}:
+            self.initial_template = "standard"
+        self.template = tk.StringVar(value="手绘卡通风" if self.initial_template == "cartoon" else "标准专业风")
 
         self.window.title("课情报告生成器")
-        self.window.geometry("720x620")
+        self.window.geometry("720x660")
         self.window.minsize(660, 560)
         self._build()
         self._drain_messages()
@@ -73,7 +77,9 @@ class TeacherApp:
         self._field(form, 4, "多维表格 app_token", self.app_token)
         self._field(form, 5, "指导老师", self.teacher)
         self._field(form, 6, "报告日期", self.report_date)
-        ttk.Label(form, text="app_token 是 Base 链接中 /base/ 后的那段字符串。", foreground="#666666").grid(row=7, column=1, sticky="w", pady=(0, 12))
+        ttk.Label(form, text="报告模板", width=18).grid(row=7, column=0, sticky="w", pady=5)
+        ttk.Combobox(form, textvariable=self.template, values=("标准专业风", "手绘卡通风"), state="readonly").grid(row=7, column=1, sticky="ew", pady=5)
+        ttk.Label(form, text="app_token 是 Base 链接中 /base/ 后的那段字符串。", foreground="#666666").grid(row=8, column=1, sticky="w", pady=(0, 12))
 
         buttons = ttk.Frame(container)
         buttons.pack(fill="x", pady=(2, 10))
@@ -107,6 +113,7 @@ class TeacherApp:
         app_id = self.app_id.get().strip()
         app_secret = self.app_secret.get().strip()
         app_token = self.app_token.get().strip()
+        template = "cartoon" if self.template.get() == "手绘卡通风" else "standard"
         use_user_token = self.auth_mode.get() == "用户令牌"
         if use_user_token and not token:
             messagebox.showerror("缺少凭据", "请选择用户令牌认证时，必须填写飞书用户令牌。")
@@ -118,20 +125,27 @@ class TeacherApp:
             messagebox.showerror("app_token 无效", "请填写多维表格链接中的 app_token。")
             return False
         next_token = token if use_user_token else ""
-        next_values = (next_token, app_id, app_secret, app_token, self.auth_mode.get())
-        initial_values = (self.initial_access_token, self.initial_app_id, self.initial_app_secret, self.initial_app_token, "用户令牌" if self.initial_access_token else "应用身份")
+        next_values = (next_token, app_id, app_secret, app_token, self.auth_mode.get(), template)
+        initial_values = (self.initial_access_token, self.initial_app_id, self.initial_app_secret, self.initial_app_token, "用户令牌" if self.initial_access_token else "应用身份", self.initial_template)
         if next_values == initial_values:
             return True
         override = self.root / "ClassReportGenerator.config.env"
         override.write_text(
-            f"USER_ACCESS_TOKEN={next_token}\nAPP_ID={app_id}\nAPP_SECRET={app_secret}\nFEISHU_APP_TOKEN={app_token}\n",
+            f"USER_ACCESS_TOKEN={next_token}\nAPP_ID={app_id}\nAPP_SECRET={app_secret}\nFEISHU_APP_TOKEN={app_token}\nREPORT_TEMPLATE={template}\n",
             encoding="utf-8",
         )
-        self.config.update({"USER_ACCESS_TOKEN": next_token, "APP_ID": app_id, "APP_SECRET": app_secret})
+        self.config.update({
+            "USER_ACCESS_TOKEN": next_token,
+            "APP_ID": app_id,
+            "APP_SECRET": app_secret,
+            "FEISHU_APP_TOKEN": app_token,
+            "REPORT_TEMPLATE": template,
+        })
         self.initial_access_token = next_token
         self.initial_app_id = app_id
         self.initial_app_secret = app_secret
         self.initial_app_token = app_token
+        self.initial_template = template
         self._append("已保存本机配置更新。\n")
         return True
 
@@ -143,7 +157,12 @@ class TeacherApp:
         elif preflight:
             cli_args.append("--validate-only")
         else:
-            cli_args.extend(["--date", self.report_date.get().strip(), "--teacher", self.teacher.get().strip()])
+            template = "cartoon" if self.template.get() == "手绘卡通风" else "standard"
+            cli_args.extend([
+                "--date", self.report_date.get().strip(),
+                "--teacher", self.teacher.get().strip(),
+                "--template", template,
+            ])
         return cli_args
 
     def _run(self, sync_only: bool = False, preflight: bool = False) -> None:

@@ -13,6 +13,7 @@ class Settings:
     report_date: date
     teacher: str = "毛远老师"
     source_data_dir: Path | None = None
+    template: str = "standard"
 
     @property
     def data_dir(self) -> Path:
