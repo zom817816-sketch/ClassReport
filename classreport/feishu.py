@@ -95,7 +95,12 @@ def read_project_env(project_root: Path) -> dict[str, str]:
     paths = []
     if bundled_root:
         paths.append(Path(bundled_root) / "embedded" / ".env")
-    paths.extend([project_root / ".env", project_root / "ClassReportGenerator.config.env"])
+        paths.append(Path(bundled_root) / "embedded" / "app_credentials.env")
+    paths.extend([
+        project_root / ".env",
+        project_root / "app_credentials.env",
+        project_root / "ClassReportGenerator.config.env",
+    ])
     for path in paths:
         if not path.exists():
             continue

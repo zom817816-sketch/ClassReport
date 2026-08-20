@@ -1,4 +1,5 @@
 .env
+app_credentials.env
 data/
 **/*.pdf
 output/

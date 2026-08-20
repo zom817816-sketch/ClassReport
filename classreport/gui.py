@@ -42,7 +42,8 @@ class TeacherApp:
         self.app_id = tk.StringVar(value=self.initial_app_id)
         self.app_secret = tk.StringVar(value=self.initial_app_secret)
         self.app_token = tk.StringVar(value=default_token)
-        self.auth_mode = tk.StringVar(value="用户令牌" if self.initial_access_token else "应用身份")
+        self.initial_auth_mode = "应用身份" if self.initial_app_id and self.initial_app_secret else "用户令牌"
+        self.auth_mode = tk.StringVar(value=self.initial_auth_mode)
         self.teacher = tk.StringVar(value="毛远老师")
         self.report_date = tk.StringVar(value=date.today().isoformat())
         self.initial_template = self.config.get("REPORT_TEMPLATE", "standard")
@@ -126,7 +127,14 @@ class TeacherApp:
             return False
         next_token = token if use_user_token else ""
         next_values = (next_token, app_id, app_secret, app_token, self.auth_mode.get(), template)
-        initial_values = (self.initial_access_token, self.initial_app_id, self.initial_app_secret, self.initial_app_token, "用户令牌" if self.initial_access_token else "应用身份", self.initial_template)
+        initial_values = (
+            self.initial_access_token,
+            self.initial_app_id,
+            self.initial_app_secret,
+            self.initial_app_token,
+            self.initial_auth_mode,
+            self.initial_template,
+        )
         if next_values == initial_values:
             return True
         override = self.root / "ClassReportGenerator.config.env"
@@ -146,6 +154,7 @@ class TeacherApp:
         self.initial_app_secret = app_secret
         self.initial_app_token = app_token
         self.initial_template = template
+        self.initial_auth_mode = self.auth_mode.get()
         self._append("已保存本机配置更新。\n")
         return True
 

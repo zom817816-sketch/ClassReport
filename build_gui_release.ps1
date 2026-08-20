@@ -10,13 +10,17 @@ $stagingRoot = Join-Path $projectRoot "build\gui_$timestamp"
 $distRoot = Join-Path $stagingRoot 'dist'
 $releaseRoot = Join-Path $projectRoot "release\ClassReport_GUI_$timestamp"
 $embeddedConfig = "$(Join-Path $projectRoot '.env');embedded"
+$embeddedCredentialOverride = "$(Join-Path $projectRoot 'app_credentials.env');embedded"
 
 if (-not (Test-Path -LiteralPath (Join-Path $projectRoot '.env'))) {
     throw '未找到 .env，无法构建含内置凭据的教师版。'
 }
+if (-not (Test-Path -LiteralPath (Join-Path $projectRoot 'app_credentials.env'))) {
+    throw '未找到 app_credentials.env，无法构建应用身份预置凭据。'
+}
 
 & $python -m pip install -r (Join-Path $projectRoot 'requirements-build.txt')
-& $python -m PyInstaller --noconfirm --clean --noconsole --onefile --name $appName --distpath $distRoot --workpath (Join-Path $stagingRoot 'work') --specpath $stagingRoot --add-data $embeddedConfig --add-data "$(Join-Path $projectRoot 'assets');assets" --collect-data matplotlib --collect-data reportlab (Join-Path $projectRoot 'teacher_gui_launcher.py')
+& $python -m PyInstaller --noconfirm --clean --noconsole --onefile --name $appName --distpath $distRoot --workpath (Join-Path $stagingRoot 'work') --specpath $stagingRoot --add-data $embeddedConfig --add-data $embeddedCredentialOverride --add-data "$(Join-Path $projectRoot 'assets');assets" --collect-data matplotlib --collect-data reportlab (Join-Path $projectRoot 'teacher_gui_launcher.py')
 
 New-Item -ItemType Directory -Force -Path $releaseRoot | Out-Null
 Copy-Item (Join-Path $distRoot "$appName.exe") $releaseRoot
