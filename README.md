@@ -71,6 +71,10 @@ python run.py --no-encrypt
 
 # 生成手绘卡通风报告
 python run.py --template cartoon
+
+# 生成孟菲斯几何风或校园笔记风报告
+python run.py --template memphis
+python run.py --template notebook
 ```
 
 ## 数据规则
