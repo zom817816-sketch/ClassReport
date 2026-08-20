@@ -68,6 +68,9 @@ python run.py --keep-output
 
 # 调试版：不加密 PDF
 python run.py --no-encrypt
+
+# 生成手绘卡通风报告
+python run.py --template cartoon
 ```
 
 ## 数据规则
