@@ -59,7 +59,7 @@ MEMPHIS_LILAC = HexColor("#EEE8FF")
 NOTEBOOK_PAPER = HexColor("#FFFEFA")
 NOTEBOOK_INK = HexColor("#28466A")
 NOTEBOOK_BLUE = HexColor("#3978BA")
-NOTEBOOK_RED = HexColor("#E15C64")
+NOTEBOOK_MARGIN = HexColor("#B7D2EC")
 NOTEBOOK_YELLOW = HexColor("#FFF0A3")
 NOTEBOOK_GREEN = HexColor("#C9E8D3")
 NOTEBOOK_PALE = HexColor("#EDF5FF")
@@ -382,14 +382,15 @@ class PdfReportBuilder:
         c.setFillColor(MUTED)
         # Match the template's two-line reading guide: explain both the
         # block-level radar comparison and the lesson-level bar comparison.
-        # Bring the reading guide closer to the title divider so it reads as
-        # part of this chart section rather than floating above the charts.
-        self._emoji(c, "📊", 48, 734, 14)
+        # Memphis has a heavier, high-contrast title bar, so give its reading
+        # guide more air than the compact professional and notebook headers.
+        caption_y = 715 if self.is_memphis else 730
+        self._emoji(c, "📊", 48, caption_y + 4, 14)
         chart_caption = (
             f"本图组展示 {a.student.name} 的个人成绩与 {len(a.student.classmates_consolidation)} 人班级平均的双维度对比。"
             "上方雷达图呈现入班测与课堂巩固的板块差异；下方柱状图逐讲比较个人与班级均分，用于定位持续优势与需复盘讲次。"
         )
-        self._wrapped(c, chart_caption, 67, 730, 478, 8.5, 12, MUTED, max_lines=2)
+        self._wrapped(c, chart_caption, 67, caption_y, 478, 8.5, 12, MUTED, max_lines=2)
         image = self._charts_image(a)
         c.drawImage(ImageReader(image), 49, 265, width=497, height=420, preserveAspectRatio=True, mask="auto")
         self._section(c, f"⑤ 入门测 vs 期末测评（5 维度对比 · {len(a.student.classmates_final)} 人班级）", 238)
@@ -828,7 +829,7 @@ class PdfReportBuilder:
         elif self.is_notebook:
             c.setFillColor(NOTEBOOK_YELLOW)
             c.roundRect(x + 18, y, width - 18, height, 4, fill=1, stroke=0)
-            c.setFillColor(NOTEBOOK_RED)
+            c.setFillColor(NOTEBOOK_BLUE)
             c.rect(x + 18, y, 3, height, fill=1, stroke=0)
         elif self.is_cartoon:
             c.setFillColor(CARTOON_YELLOW)
@@ -840,9 +841,14 @@ class PdfReportBuilder:
         c.setFont(FONT_BOLD, 9.5)
         line_y = y + height - 20
         for icon, color, text in lines:
+            if self.is_notebook:
+                color = NOTEBOOK_BLUE
+                icon_x, text_x, text_width = x + 31, x + 50, width - 62
+            else:
+                icon_x, text_x, text_width = x + 11, x + 30, width - 41
             c.setFillColor(color)
-            self._emoji(c, icon, x + 11, line_y + 3, 13)
-            self._wrapped(c, text, x + 30, line_y, width - 41, 9.5, 15, color, max_lines=2, font_name=FONT_BOLD)
+            self._emoji(c, icon, icon_x, line_y + 3, 13)
+            self._wrapped(c, text, text_x, line_y, text_width, 9.5, 15, color, max_lines=2, font_name=FONT_BOLD)
             line_y -= 32
 
     def _diagnostic_card(
@@ -905,7 +911,7 @@ class PdfReportBuilder:
             c.setDash()
         elif self.is_notebook:
             c.roundRect(x + 18, y, width - 18, height, 5, fill=1, stroke=0)
-            c.setFillColor(NOTEBOOK_RED)
+            c.setFillColor(NOTEBOOK_BLUE)
             c.rect(x + 18, y, 3, height, fill=1, stroke=0)
         elif self.is_cartoon:
             c.roundRect(x, y, width, height, 9, fill=1, stroke=0)
@@ -917,7 +923,9 @@ class PdfReportBuilder:
         ink = MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else DEEP_BLUE))
         c.setFillColor(ink)
         c.setFont(FONT_BOLD, 10.5)
-        c.drawString(x + 14, y + height - 22, "五维诊断结论")
+        content_x = x + 32 if self.is_notebook else x + 14
+        content_width = width - 52 if self.is_notebook else width - 24
+        c.drawString(content_x, y + height - 22, "五维诊断结论")
         cursor = y + height - 48
         for line in lines:
             content_ink = MEMPHIS_INK if self.is_memphis else (NOTEBOOK_INK if self.is_notebook else (CARTOON_INK if self.is_cartoon else TEXT))
@@ -927,7 +935,7 @@ class PdfReportBuilder:
             # of distributing five entries across the full panel height.
             # This keeps consecutive recommendations visually connected.
             used_lines = self._wrapped_with_bold_prefix(
-                c, line, x + 12, cursor, width - 24, 9.4, 17, content_ink,
+                c, line, content_x, cursor, content_width, 9.4, 17, content_ink,
             )
             cursor -= used_lines * 17 + 9
 
@@ -1020,7 +1028,7 @@ class PdfReportBuilder:
         c.setLineWidth(0.35)
         for y in range(88, 744, 22):
             c.line(48, y, PAGE_W - 48, y)
-        c.setStrokeColor(HexColor("#F0B6B9"))
+        c.setStrokeColor(NOTEBOOK_MARGIN)
         c.setLineWidth(0.65)
         c.line(58, 64, 58, PAGE_H - 48)
         c.setFillColor(NOTEBOOK_PAPER)
@@ -1035,7 +1043,7 @@ class PdfReportBuilder:
         c.roundRect(PAGE_W - 87, 705, 21, 13, 2, fill=1, stroke=0)
         c.setFillColor(NOTEBOOK_GREEN)
         c.roundRect(PAGE_W - 79, 104 + offset * 3, 17, 11, 2, fill=1, stroke=0)
-        c.setFillColor(NOTEBOOK_RED)
+        c.setFillColor(NOTEBOOK_BLUE)
         c.circle(82, 704, 4, fill=1, stroke=0)
 
     def _watermark(self, c: Canvas, a: ReportAnalysis, center_y: float = PAGE_H / 2) -> None:
