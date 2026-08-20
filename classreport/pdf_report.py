@@ -330,7 +330,10 @@ class PdfReportBuilder:
         strengths = [item for item in a.categories if item.score is not None and item.score >= 85]
         strength_text = self._core_strength_text(a)
         low_text = self._core_weakness_text(a)
-        self._callout(c, 48, 646, 499, 101, [
+        # The cartoon page header uses a lower hand-drawn divider. Keep this
+        # callout below that divider so its background cannot cover the line.
+        callout_y = 634 if self.is_cartoon else 646
+        self._callout(c, 48, callout_y, 499, 101, [
             ("✅", GREEN, f"优势：{strength_text}"),
             ("⚠️", RED, f"不足：{low_text}"),
             ("🚀", DEEP_BLUE, f"建议：{self._recommendation(a)}"),
